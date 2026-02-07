@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+/* Custom theme colors */
+@theme {
+  --color-queue-green: #16a34a;
+  --color-queue-green-light: #dcfce7;
+  --color-queue-blue: #2563eb;
+  --color-queue-blue-light: #dbeafe;
+  --color-queue-amber: #d97706;
+  --color-queue-amber-light: #fef3c7;
+  --color-queue-red: #dc2626;
+  --color-queue-red-light: #fee2e2;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for queue panels */
+.queue-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.queue-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.queue-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.queue-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Drag overlay styling */
+.drag-overlay {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transform: scale(1.02);
+  opacity: 0.95;
+}
+
+/* Card transitions */
+.group-card {
+  transition: all 0.2s ease;
+}
+
+.group-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Pulse animation for ON DECK badge */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.on-deck-pulse {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.25s ease-out;
+}
+
+/* Check mark animation */
+@keyframes checkIn {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.check-animate {
+  animation: checkIn 0.3s ease-out;
+}
+
+/* Glow for ready groups */
+@keyframes readyGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.1); }
+}
+
+.ready-glow {
+  animation: readyGlow 2s ease-in-out infinite;
+}
