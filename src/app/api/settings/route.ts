@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get, set, update } from '@/lib/firebase'
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest) {
     const db = getDb()
 
     // Ensure settings exist
-    const settingsSnap = await db.ref('settings/default').once('value')
+    const settingsSnap = await get(ref(db, 'settings/default'))
     let settings = settingsSnap.val()
     if (!settings) {
       settings = {
@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest) {
         isPaused: isPaused || false,
         pauseReason: pauseReason || null,
       }
-      await db.ref('settings/default').set(settings)
+      await set(ref(db, 'settings/default'), settings)
       return NextResponse.json(settings)
     }
 
@@ -28,9 +28,9 @@ export async function PATCH(request: NextRequest) {
     if (pauseReason !== undefined) updates.pauseReason = pauseReason
     if (clubName !== undefined) updates.clubName = clubName
 
-    await db.ref('settings/default').update(updates)
+    await update(ref(db, 'settings/default'), updates)
 
-    const updatedSnap = await db.ref('settings/default').once('value')
+    const updatedSnap = await get(ref(db, 'settings/default'))
     return NextResponse.json(updatedSnap.val())
   } catch (error) {
     console.error('Settings update error:', error)

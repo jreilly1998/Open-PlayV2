@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get, update, query, orderByChild, equalTo } from '@/lib/firebase'
 
 // Check in a pre-registered group (move from pre-registered to assembling or queue)
 export async function POST(
@@ -8,7 +8,7 @@ export async function POST(
 ) {
   try {
     const db = getDb()
-    const groupSnap = await db.ref(`groups/${params.id}`).once('value')
+    const groupSnap = await get(ref(db, `groups/${params.id}`))
     const group = groupSnap.val()
 
     if (!group) {
@@ -21,7 +21,7 @@ export async function POST(
 
     if (allArrived) {
       // All members present, go straight to queue
-      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      const queuedSnap = await get(query(ref(db, 'groups'), orderByChild('status'), equalTo('queued')))
       let maxPosition = 0
       queuedSnap.forEach(child => {
         const pos = child.val().position || 0
@@ -29,7 +29,7 @@ export async function POST(
       })
       const nextPosition = maxPosition + 1
 
-      await db.ref(`groups/${params.id}`).update({
+      await update(ref(db, `groups/${params.id}`), {
         status: 'queued',
         position: nextPosition,
         enteredQueueAt: now,
@@ -37,7 +37,7 @@ export async function POST(
         updatedAt: now,
       })
 
-      const updatedSnap = await db.ref(`groups/${params.id}`).once('value')
+      const updatedSnap = await get(ref(db, `groups/${params.id}`))
       const updated = updatedSnap.val()
       return NextResponse.json({
         ...updated,
@@ -45,12 +45,12 @@ export async function POST(
       })
     } else {
       // Partial arrival, move to assembling
-      await db.ref(`groups/${params.id}`).update({
+      await update(ref(db, `groups/${params.id}`), {
         assemblingAt: now,
         updatedAt: now,
       })
 
-      const updatedSnap = await db.ref(`groups/${params.id}`).once('value')
+      const updatedSnap = await get(ref(db, `groups/${params.id}`))
       const updated = updatedSnap.val()
       return NextResponse.json({
         ...updated,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get, set, update, query, orderByChild, equalTo } from '@/lib/firebase'
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +10,7 @@ export async function POST(
     const memberId = params.id
 
     // Find the member across all groups
-    const groupsSnap = await db.ref('groups').once('value')
+    const groupsSnap = await get(ref(db, 'groups'))
     const allGroups = groupsSnap.val() || {}
 
     let foundMember: { id: string; name: string; arrived: boolean; groupId: string } | null = null
@@ -36,10 +36,10 @@ export async function POST(
 
     // Toggle arrived status
     const newArrived = !foundMember.arrived
-    await db.ref(`groups/${foundGroupId}/members/${foundMemberId}/arrived`).set(newArrived)
+    await set(ref(db, `groups/${foundGroupId}/members/${foundMemberId}/arrived`), newArrived)
 
     // Check if all members are now arrived
-    const groupSnap = await db.ref(`groups/${foundGroupId}`).once('value')
+    const groupSnap = await get(ref(db, `groups/${foundGroupId}`))
     const group = groupSnap.val()
     const members = group.members ? Object.values(group.members) as { id: string; arrived: boolean }[] : []
 
@@ -49,7 +49,7 @@ export async function POST(
 
     // Auto-move to queue if all members arrive and group is assembling
     if (allArrived && group.status === 'assembling' && group.assemblingAt !== null) {
-      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      const queuedSnap = await get(query(ref(db, 'groups'), orderByChild('status'), equalTo('queued')))
       let maxPosition = 0
       queuedSnap.forEach(child => {
         const pos = child.val().position || 0
@@ -58,7 +58,7 @@ export async function POST(
       const nextPosition = maxPosition + 1
       const now = new Date().toISOString()
 
-      await db.ref(`groups/${foundGroupId}`).update({
+      await update(ref(db, `groups/${foundGroupId}`), {
         status: 'queued',
         position: nextPosition,
         enteredQueueAt: now,

@@ -1,18 +1,19 @@
-import { initializeApp, cert } from 'firebase-admin/app'
-import { getDatabase } from 'firebase-admin/database'
+import { initializeApp } from 'firebase/app'
+import { getDatabase, ref, set, remove } from 'firebase/database'
 
-const databaseURL = process.env.FIREBASE_DATABASE_URL
-if (!databaseURL) {
-  console.error('FIREBASE_DATABASE_URL environment variable is required')
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+}
+
+if (!firebaseConfig.databaseURL) {
+  console.error('NEXT_PUBLIC_FIREBASE_DATABASE_URL environment variable is required')
   process.exit(1)
 }
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-
-const app = serviceAccount
-  ? initializeApp({ credential: cert(JSON.parse(serviceAccount)), databaseURL })
-  : initializeApp({ databaseURL })
-
+const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 
 function generateId(): string {
@@ -27,11 +28,11 @@ function generateId(): string {
 
 async function main() {
   // Clean existing data
-  await db.ref('groups').remove()
-  await db.ref('settings').remove()
+  await remove(ref(db, 'groups'))
+  await remove(ref(db, 'settings'))
 
   // Create settings
-  await db.ref('settings/default').set({
+  await set(ref(db, 'settings/default'), {
     id: 'default',
     clubName: 'Fairview Golf Club',
     isPaused: false,
@@ -66,7 +67,7 @@ async function main() {
       }
     })
 
-    await db.ref(`groups/${groupId}`).set({
+    await set(ref(db, `groups/${groupId}`), {
       id: groupId,
       name: data.name,
       partySize: data.partySize,

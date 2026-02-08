@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ export async function GET() {
     today.setHours(0, 0, 0, 0)
     const todayISO = today.toISOString()
 
-    const groupsSnap = await db.ref('groups').once('value')
+    const groupsSnap = await get(ref(db, 'groups'))
     const allGroupsRaw = groupsSnap.val() || {}
 
     const groups = Object.values(allGroupsRaw)

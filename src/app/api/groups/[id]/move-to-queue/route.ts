@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get, update, query, orderByChild, equalTo } from '@/lib/firebase'
 
 export async function POST(
   request: NextRequest,
@@ -7,14 +7,14 @@ export async function POST(
 ) {
   try {
     const db = getDb()
-    const groupSnap = await db.ref(`groups/${params.id}`).once('value')
+    const groupSnap = await get(ref(db, `groups/${params.id}`))
     const group = groupSnap.val()
 
     if (!group) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+    const queuedSnap = await get(query(ref(db, 'groups'), orderByChild('status'), equalTo('queued')))
     let maxPosition = 0
     queuedSnap.forEach(child => {
       const pos = child.val().position || 0
@@ -23,14 +23,14 @@ export async function POST(
     const nextPosition = maxPosition + 1
     const now = new Date().toISOString()
 
-    await db.ref(`groups/${params.id}`).update({
+    await update(ref(db, `groups/${params.id}`), {
       status: 'queued',
       position: nextPosition,
       enteredQueueAt: now,
       updatedAt: now,
     })
 
-    const updatedSnap = await db.ref(`groups/${params.id}`).once('value')
+    const updatedSnap = await get(ref(db, `groups/${params.id}`))
     const updated = updatedSnap.val()
     return NextResponse.json({
       ...updated,
