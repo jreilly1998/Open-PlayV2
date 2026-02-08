@@ -66,7 +66,7 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-queue-green px-5 py-3 rounded-t-xl">
-        <h2 className="text-white font-bold text-lg">Ready to Play</h2>
+        <h2 className="text-white font-bold text-lg">Queue</h2>
         <p className="text-green-100 text-sm">
           {groups.length} group{groups.length !== 1 ? 's' : ''}
         </p>
