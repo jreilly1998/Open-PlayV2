@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 // Check in a pre-registered group (move from pre-registered to assembling or queue)
 export async function POST(
@@ -7,47 +7,55 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const group = await prisma.group.findUnique({
-      where: { id: params.id },
-      include: { members: true },
-    })
+    const db = getDb()
+    const groupSnap = await db.ref(`groups/${params.id}`).once('value')
+    const group = groupSnap.val()
+
     if (!group) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    const allArrived = group.members.every(m => m.arrived)
+    const members = group.members ? Object.values(group.members) as { id: string; name: string; arrived: boolean; groupId: string }[] : []
+    const allArrived = members.every((m) => m.arrived)
+    const now = new Date().toISOString()
 
     if (allArrived) {
       // All members present, go straight to queue
-      const maxPosition = await prisma.group.aggregate({
-        where: { status: 'queued' },
-        _max: { position: true },
+      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      let maxPosition = 0
+      queuedSnap.forEach(child => {
+        const pos = child.val().position || 0
+        if (pos > maxPosition) maxPosition = pos
       })
-      const nextPosition = (maxPosition._max.position ?? 0) + 1
+      const nextPosition = maxPosition + 1
 
-      const updated = await prisma.group.update({
-        where: { id: params.id },
-        data: {
-          status: 'queued',
-          position: nextPosition,
-          enteredQueueAt: new Date(),
-          assemblingAt: new Date(),
-        },
-        include: { members: true },
+      await db.ref(`groups/${params.id}`).update({
+        status: 'queued',
+        position: nextPosition,
+        enteredQueueAt: now,
+        assemblingAt: now,
+        updatedAt: now,
       })
 
-      return NextResponse.json(updated)
+      const updatedSnap = await db.ref(`groups/${params.id}`).once('value')
+      const updated = updatedSnap.val()
+      return NextResponse.json({
+        ...updated,
+        members: updated.members ? Object.values(updated.members) : [],
+      })
     } else {
       // Partial arrival, move to assembling
-      const updated = await prisma.group.update({
-        where: { id: params.id },
-        data: {
-          assemblingAt: new Date(),
-        },
-        include: { members: true },
+      await db.ref(`groups/${params.id}`).update({
+        assemblingAt: now,
+        updatedAt: now,
       })
 
-      return NextResponse.json(updated)
+      const updatedSnap = await db.ref(`groups/${params.id}`).once('value')
+      const updated = updatedSnap.val()
+      return NextResponse.json({
+        ...updated,
+        members: updated.members ? Object.values(updated.members) : [],
+      })
     }
   } catch (error) {
     console.error('Check in error:', error)

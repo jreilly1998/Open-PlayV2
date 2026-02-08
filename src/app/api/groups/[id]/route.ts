@@ -1,32 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const group = await prisma.group.findUnique({ where: { id: params.id } })
+    const db = getDb()
+    const groupSnap = await db.ref(`groups/${params.id}`).once('value')
+    const group = groupSnap.val()
+
     if (!group) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    await prisma.group.update({
-      where: { id: params.id },
-      data: { status: 'cancelled' },
-    })
+    await db.ref(`groups/${params.id}/status`).set('cancelled')
+    await db.ref(`groups/${params.id}/updatedAt`).set(new Date().toISOString())
 
     // Re-number positions if was in queue
     if (group.status === 'queued') {
-      const remaining = await prisma.group.findMany({
-        where: { status: 'queued' },
-        orderBy: { position: 'asc' },
+      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      const remaining: { id: string; position: number }[] = []
+      queuedSnap.forEach(child => {
+        const g = child.val()
+        remaining.push({ id: g.id, position: g.position })
       })
-      for (let i = 0; i < remaining.length; i++) {
-        await prisma.group.update({
-          where: { id: remaining[i].id },
-          data: { position: i + 1 },
-        })
+      remaining.sort((a, b) => a.position - b.position)
+
+      const updates: Record<string, number> = {}
+      remaining.forEach((g, i) => {
+        updates[`groups/${g.id}/position`] = i + 1
+      })
+      if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates)
       }
     }
 

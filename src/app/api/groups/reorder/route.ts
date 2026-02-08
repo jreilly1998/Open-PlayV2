@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,15 +9,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'orderedIds must be an array' }, { status: 400 })
     }
 
-    // Update positions in a transaction
-    await prisma.$transaction(
-      orderedIds.map((id: string, index: number) =>
-        prisma.group.update({
-          where: { id },
-          data: { position: index + 1 },
-        })
-      )
-    )
+    const db = getDb()
+
+    // Update all positions atomically via multi-path update
+    const updates: Record<string, number | string> = {}
+    const now = new Date().toISOString()
+    orderedIds.forEach((id: string, index: number) => {
+      updates[`groups/${id}/position`] = index + 1
+      updates[`groups/${id}/updatedAt`] = now
+    })
+
+    await db.ref().update(updates)
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -1,61 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const member = await prisma.member.findUnique({
-      where: { id: params.id },
-      include: { group: { include: { members: true } } },
-    })
-    if (!member) {
+    const db = getDb()
+    const memberId = params.id
+
+    // Find the member across all groups
+    const groupsSnap = await db.ref('groups').once('value')
+    const allGroups = groupsSnap.val() || {}
+
+    let foundMember: { id: string; name: string; arrived: boolean; groupId: string } | null = null
+    let foundGroupId: string | null = null
+    let foundMemberId: string | null = null
+
+    for (const [groupId, group] of Object.entries(allGroups) as [string, Record<string, unknown>][]) {
+      const members = (group.members || {}) as Record<string, { id: string; name: string; arrived: boolean; groupId: string }>
+      for (const [mId, member] of Object.entries(members)) {
+        if (member.id === memberId || mId === memberId) {
+          foundMember = member
+          foundGroupId = groupId
+          foundMemberId = mId
+          break
+        }
+      }
+      if (foundMember) break
+    }
+
+    if (!foundMember || !foundGroupId || !foundMemberId) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
     }
 
     // Toggle arrived status
-    const updated = await prisma.member.update({
-      where: { id: params.id },
-      data: { arrived: !member.arrived },
-    })
+    const newArrived = !foundMember.arrived
+    await db.ref(`groups/${foundGroupId}/members/${foundMemberId}/arrived`).set(newArrived)
 
     // Check if all members are now arrived
-    const group = await prisma.group.findUnique({
-      where: { id: member.groupId },
-      include: { members: true },
-    })
+    const groupSnap = await db.ref(`groups/${foundGroupId}`).once('value')
+    const group = groupSnap.val()
+    const members = group.members ? Object.values(group.members) as { id: string; arrived: boolean }[] : []
 
-    if (!group) {
-      return NextResponse.json({ error: 'Group not found' }, { status: 404 })
-    }
-
-    const allArrived = group.members.every(m =>
-      m.id === params.id ? !member.arrived : m.arrived
+    const allArrived = members.every(m =>
+      m.id === memberId ? newArrived : m.arrived
     )
 
     // Auto-move to queue if all members arrive and group is assembling
     if (allArrived && group.status === 'assembling' && group.assemblingAt !== null) {
-      const maxPosition = await prisma.group.aggregate({
-        where: { status: 'queued' },
-        _max: { position: true },
+      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      let maxPosition = 0
+      queuedSnap.forEach(child => {
+        const pos = child.val().position || 0
+        if (pos > maxPosition) maxPosition = pos
       })
-      const nextPosition = (maxPosition._max.position ?? 0) + 1
+      const nextPosition = maxPosition + 1
+      const now = new Date().toISOString()
 
-      await prisma.group.update({
-        where: { id: group.id },
-        data: {
-          status: 'queued',
-          position: nextPosition,
-          enteredQueueAt: new Date(),
-        },
+      await db.ref(`groups/${foundGroupId}`).update({
+        status: 'queued',
+        position: nextPosition,
+        enteredQueueAt: now,
+        updatedAt: now,
       })
     }
 
     return NextResponse.json({
-      member: updated,
+      member: { ...foundMember, arrived: newArrived },
       allArrived,
-      groupId: member.groupId,
+      groupId: foundGroupId,
     })
   } catch (error) {
     console.error('Toggle member error:', error)

@@ -1,36 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const group = await prisma.group.findUnique({
-      where: { id: params.id },
-      include: { members: true },
-    })
+    const db = getDb()
+    const groupSnap = await db.ref(`groups/${params.id}`).once('value')
+    const group = groupSnap.val()
+
     if (!group) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    const maxPosition = await prisma.group.aggregate({
-      where: { status: 'queued' },
-      _max: { position: true },
+    const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+    let maxPosition = 0
+    queuedSnap.forEach(child => {
+      const pos = child.val().position || 0
+      if (pos > maxPosition) maxPosition = pos
     })
-    const nextPosition = (maxPosition._max.position ?? 0) + 1
+    const nextPosition = maxPosition + 1
+    const now = new Date().toISOString()
 
-    const updated = await prisma.group.update({
-      where: { id: params.id },
-      data: {
-        status: 'queued',
-        position: nextPosition,
-        enteredQueueAt: new Date(),
-      },
-      include: { members: true },
+    await db.ref(`groups/${params.id}`).update({
+      status: 'queued',
+      position: nextPosition,
+      enteredQueueAt: now,
+      updatedAt: now,
     })
 
-    return NextResponse.json(updated)
+    const updatedSnap = await db.ref(`groups/${params.id}`).once('value')
+    const updated = updatedSnap.val()
+    return NextResponse.json({
+      ...updated,
+      members: updated.members ? Object.values(updated.members) : [],
+    })
   } catch (error) {
     console.error('Move to queue error:', error)
     return NextResponse.json({ error: 'Failed to move group to queue' }, { status: 500 })
