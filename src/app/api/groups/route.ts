@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb, generateId } from '@/lib/firebase'
+import { getDb, ref, get, set, query, orderByChild, equalTo, generateId } from '@/lib/firebase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     if (allPresent) {
       // Find max position among queued groups
-      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      const queuedSnap = await get(query(ref(db, 'groups'), orderByChild('status'), equalTo('queued')))
       let maxPosition = 0
       queuedSnap.forEach(child => {
         const pos = child.val().position || 0
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         members,
       }
 
-      await db.ref(`groups/${groupId}`).set(group)
+      await set(ref(db, `groups/${groupId}`), group)
 
       // Return with members as array for API compatibility
       return NextResponse.json({
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         members,
       }
 
-      await db.ref(`groups/${groupId}`).set(group)
+      await set(ref(db, `groups/${groupId}`), group)
 
       return NextResponse.json({
         ...group,

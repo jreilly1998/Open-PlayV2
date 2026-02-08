@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get, set, update, query, orderByChild, equalTo } from '@/lib/firebase'
 
 export async function DELETE(
   request: NextRequest,
@@ -7,19 +7,19 @@ export async function DELETE(
 ) {
   try {
     const db = getDb()
-    const groupSnap = await db.ref(`groups/${params.id}`).once('value')
+    const groupSnap = await get(ref(db, `groups/${params.id}`))
     const group = groupSnap.val()
 
     if (!group) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    await db.ref(`groups/${params.id}/status`).set('cancelled')
-    await db.ref(`groups/${params.id}/updatedAt`).set(new Date().toISOString())
+    await set(ref(db, `groups/${params.id}/status`), 'cancelled')
+    await set(ref(db, `groups/${params.id}/updatedAt`), new Date().toISOString())
 
     // Re-number positions if was in queue
     if (group.status === 'queued') {
-      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      const queuedSnap = await get(query(ref(db, 'groups'), orderByChild('status'), equalTo('queued')))
       const remaining: { id: string; position: number }[] = []
       queuedSnap.forEach(child => {
         const g = child.val()
@@ -32,7 +32,7 @@ export async function DELETE(
         updates[`groups/${g.id}/position`] = i + 1
       })
       if (Object.keys(updates).length > 0) {
-        await db.ref().update(updates)
+        await update(ref(db), updates)
       }
     }
 

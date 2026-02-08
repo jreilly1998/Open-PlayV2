@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, get, set } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,11 +8,11 @@ export async function GET() {
     const db = getDb()
 
     // Ensure settings exist
-    const settingsSnap = await db.ref('settings/default').once('value')
+    const settingsSnap = await get(ref(db, 'settings/default'))
     let settings = settingsSnap.val()
     if (!settings) {
       settings = { id: 'default', clubName: 'Fairview Golf Club', isPaused: false, pauseReason: null }
-      await db.ref('settings/default').set(settings)
+      await set(ref(db, 'settings/default'), settings)
     }
 
     const today = new Date()
@@ -20,7 +20,7 @@ export async function GET() {
     const todayISO = today.toISOString()
 
     // Fetch all groups
-    const groupsSnap = await db.ref('groups').once('value')
+    const groupsSnap = await get(ref(db, 'groups'))
     const allGroupsRaw = groupsSnap.val() || {}
 
     // Convert to array with members as arrays

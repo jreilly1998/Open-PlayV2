@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, ref, update } from '@/lib/firebase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       updates[`groups/${id}/updatedAt`] = now
     })
 
-    await db.ref().update(updates)
+    await update(ref(db), updates)
 
     return NextResponse.json({ success: true })
   } catch (error) {
