@@ -1,60 +1,71 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const db = getDb()
+
     // Ensure settings exist
-    const settings = await prisma.queueSettings.upsert({
-      where: { id: 'default' },
-      update: {},
-      create: { id: 'default', clubName: 'Fairview Golf Club', isPaused: false },
-    })
+    const settingsSnap = await db.ref('settings/default').once('value')
+    let settings = settingsSnap.val()
+    if (!settings) {
+      settings = { id: 'default', clubName: 'Fairview Golf Club', isPaused: false, pauseReason: null }
+      await db.ref('settings/default').set(settings)
+    }
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const todayISO = today.toISOString()
 
-    const [queued, assembling, preRegistered, todayGroups] = await Promise.all([
-      prisma.group.findMany({
-        where: { status: 'queued' },
-        include: { members: true },
-        orderBy: { position: 'asc' },
-      }),
-      prisma.group.findMany({
-        where: { status: 'assembling' },
-        include: { members: true },
-        orderBy: { assemblingAt: 'asc' },
-      }),
-      prisma.group.findMany({
-        where: {
-          isPreRegistered: true,
-          status: 'assembling',
-          scheduledTime: { not: null },
-          assemblingAt: null,
-        },
-        include: { members: true },
-        orderBy: { scheduledTime: 'asc' },
-      }),
-      prisma.group.findMany({
-        where: { createdAt: { gte: today } },
-        include: { members: true },
-      }),
-    ])
+    // Fetch all groups
+    const groupsSnap = await db.ref('groups').once('value')
+    const allGroupsRaw = groupsSnap.val() || {}
 
-    // Separate pre-registered that haven't checked in yet
-    // vs assembling groups (which may have been pre-registered but are now checked in)
-    const actualAssembling = assembling.filter(g => g.assemblingAt !== null)
-    const actualPreRegistered = await prisma.group.findMany({
-      where: {
-        isPreRegistered: true,
-        status: { in: ['assembling'] },
-        assemblingAt: null,
-      },
-      include: { members: true },
-      orderBy: { scheduledTime: 'asc' },
-    })
+    // Convert to array with members as arrays
+    const allGroups = Object.values(allGroupsRaw).map((g: unknown) => {
+      const group = g as Record<string, unknown>
+      return {
+        ...group,
+        members: group.members ? Object.values(group.members as Record<string, unknown>) : [],
+      }
+    }) as Array<{
+      id: string
+      name: string
+      partySize: number
+      status: string
+      position: number
+      enteredQueueAt: string | null
+      assemblingAt: string | null
+      teedOffAt: string | null
+      scheduledTime: string | null
+      isPreRegistered: boolean
+      createdAt: string
+      updatedAt: string
+      members: Array<{ id: string; name: string; arrived: boolean; groupId: string }>
+    }>
 
+    // Filter groups
+    const queued = allGroups
+      .filter(g => g.status === 'queued')
+      .sort((a, b) => a.position - b.position)
+
+    const actualAssembling = allGroups
+      .filter(g => g.status === 'assembling' && g.assemblingAt !== null)
+      .sort((a, b) => {
+        if (!a.assemblingAt || !b.assemblingAt) return 0
+        return new Date(a.assemblingAt).getTime() - new Date(b.assemblingAt).getTime()
+      })
+
+    const actualPreRegistered = allGroups
+      .filter(g => g.isPreRegistered && g.status === 'assembling' && !g.assemblingAt)
+      .sort((a, b) => {
+        if (!a.scheduledTime || !b.scheduledTime) return 0
+        return new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
+      })
+
+    const todayGroups = allGroups.filter(g => g.createdAt >= todayISO)
     const completedGroups = todayGroups.filter(g => g.status === 'completed')
     const assemblingCount = actualAssembling.length
 
@@ -69,8 +80,7 @@ export async function GET() {
       }, 0)
       averageWaitMinutes = Math.round(totalWait / completedGroups.length / 60000)
     } else if (queued.length > 0) {
-      // Estimate from current queue
-      averageWaitMinutes = queued.length * 8 // ~8 min per group rough estimate
+      averageWaitMinutes = queued.length * 8
     }
 
     return NextResponse.json({

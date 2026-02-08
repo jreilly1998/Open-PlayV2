@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb, generateId } from '@/lib/firebase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,65 +10,88 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and party size required' }, { status: 400 })
     }
 
+    const db = getDb()
+
     // Parse member names
-    const members: string[] = memberNames
+    const memberList: string[] = memberNames
       ? memberNames.split(',').map((n: string) => n.trim()).filter(Boolean)
       : []
 
-    // Pad or create member entries to match party size
-    while (members.length < partySize) {
-      members.push(`Player ${members.length + 1}`)
+    while (memberList.length < partySize) {
+      memberList.push(`Player ${memberList.length + 1}`)
     }
 
+    const groupId = generateId()
+    const now = new Date().toISOString()
+
+    // Build members object
+    const members: Record<string, { id: string; name: string; arrived: boolean; groupId: string }> = {}
+    memberList.forEach(memberName => {
+      const memberId = generateId()
+      members[memberId] = {
+        id: memberId,
+        name: memberName,
+        arrived: allPresent ? true : false,
+        groupId,
+      }
+    })
+
     if (allPresent) {
-      // Go straight to queue
-      const maxPosition = await prisma.group.aggregate({
-        where: { status: 'queued' },
-        _max: { position: true },
+      // Find max position among queued groups
+      const queuedSnap = await db.ref('groups').orderByChild('status').equalTo('queued').once('value')
+      let maxPosition = 0
+      queuedSnap.forEach(child => {
+        const pos = child.val().position || 0
+        if (pos > maxPosition) maxPosition = pos
       })
-      const nextPosition = (maxPosition._max.position ?? 0) + 1
+      const nextPosition = maxPosition + 1
 
-      const group = await prisma.group.create({
-        data: {
-          name,
-          partySize,
-          status: 'queued',
-          position: nextPosition,
-          enteredQueueAt: new Date(),
-          isPreRegistered: isPreRegistered || false,
-          scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
-          members: {
-            create: members.map(memberName => ({
-              name: memberName,
-              arrived: true,
-            })),
-          },
-        },
-        include: { members: true },
-      })
+      const group = {
+        id: groupId,
+        name,
+        partySize,
+        status: 'queued',
+        position: nextPosition,
+        enteredQueueAt: now,
+        assemblingAt: null,
+        teedOffAt: null,
+        scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : null,
+        isPreRegistered: isPreRegistered || false,
+        createdAt: now,
+        updatedAt: now,
+        members,
+      }
 
-      return NextResponse.json(group, { status: 201 })
+      await db.ref(`groups/${groupId}`).set(group)
+
+      // Return with members as array for API compatibility
+      return NextResponse.json({
+        ...group,
+        members: Object.values(members),
+      }, { status: 201 })
     } else {
-      // Go to assembling
-      const group = await prisma.group.create({
-        data: {
-          name,
-          partySize,
-          status: 'assembling',
-          assemblingAt: isPreRegistered ? null : new Date(),
-          isPreRegistered: isPreRegistered || false,
-          scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
-          members: {
-            create: members.map(memberName => ({
-              name: memberName,
-              arrived: false,
-            })),
-          },
-        },
-        include: { members: true },
-      })
+      const group = {
+        id: groupId,
+        name,
+        partySize,
+        status: 'assembling',
+        position: 0,
+        enteredQueueAt: null,
+        assemblingAt: isPreRegistered ? null : now,
+        teedOffAt: null,
+        scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : null,
+        isPreRegistered: isPreRegistered || false,
+        createdAt: now,
+        updatedAt: now,
+        members,
+      }
 
-      return NextResponse.json(group, { status: 201 })
+      await db.ref(`groups/${groupId}`).set(group)
+
+      return NextResponse.json({
+        ...group,
+        members: Object.values(members),
+      }, { status: 201 })
     }
   } catch (error) {
     console.error('Create group error:', error)

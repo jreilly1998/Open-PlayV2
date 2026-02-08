@@ -7,16 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@prisma/client": "^5.22.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "firebase-admin": "^13.6.1",
     "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -27,8 +25,8 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",
-    "prisma": "^5.22.0",
     "tailwindcss": "^4.1.18",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

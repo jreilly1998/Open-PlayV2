@@ -1,21 +1,39 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/firebase'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const db = getDb()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const todayISO = today.toISOString()
 
-    const groups = await prisma.group.findMany({
-      where: {
-        createdAt: { gte: today },
-        status: { in: ['completed', 'cancelled'] },
-      },
-      include: { members: true },
-      orderBy: { teedOffAt: 'desc' },
-    })
+    const groupsSnap = await db.ref('groups').once('value')
+    const allGroupsRaw = groupsSnap.val() || {}
+
+    const groups = Object.values(allGroupsRaw)
+      .map((g: unknown) => {
+        const group = g as Record<string, unknown>
+        return {
+          ...group,
+          members: group.members ? Object.values(group.members as Record<string, unknown>) : [],
+        }
+      })
+      .filter((g: Record<string, unknown>) => {
+        const createdAt = g.createdAt as string
+        const status = g.status as string
+        return createdAt >= todayISO && (status === 'completed' || status === 'cancelled')
+      })
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const aTime = a.teedOffAt as string | null
+        const bTime = b.teedOffAt as string | null
+        if (!aTime && !bTime) return 0
+        if (!aTime) return 1
+        if (!bTime) return -1
+        return new Date(bTime).getTime() - new Date(aTime).getTime()
+      })
 
     return NextResponse.json(groups)
   } catch (error) {
