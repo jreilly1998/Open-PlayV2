@@ -20,7 +20,7 @@ interface ScheduledArrivalsProps {
 
 export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArrivalsProps) {
   const [expanded, setExpanded] = useState(true)
-  const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set())
+  const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<Record<string, boolean>>({})
 
   // Group by time slot (round to nearest 30 min)
@@ -32,7 +32,7 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
   }, {})
 
   const toggleSlot = (slot: string) => {
-    setExpandedSlots(prev => {
+    setCollapsedSlots(prev => {
       const next = new Set(prev)
       if (next.has(slot)) next.delete(slot)
       else next.add(slot)
@@ -97,7 +97,7 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
                   >
                     <div className="flex items-center gap-2">
                       <svg
-                        className={`w-4 h-4 text-gray-400 transition-transform ${expandedSlots.has(slot) ? 'rotate-90' : ''}`}
+                        className={`w-4 h-4 text-gray-400 transition-transform ${!collapsedSlots.has(slot) ? 'rotate-90' : ''}`}
                         fill="currentColor" viewBox="0 0 20 20"
                       >
                         <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
@@ -109,7 +109,7 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
                     </span>
                   </button>
 
-                  {expandedSlots.has(slot) && (
+                  {!collapsedSlots.has(slot) && (
                     <div className="px-5 pb-3 space-y-2">
                       {slotGroups.map(group => (
                         <div

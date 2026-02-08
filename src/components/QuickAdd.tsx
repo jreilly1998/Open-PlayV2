@@ -12,11 +12,15 @@ export default function QuickAdd({ onRefetch }: QuickAddProps) {
   const [name, setName] = useState('')
   const [partySize, setPartySize] = useState(4)
   const [memberNames, setMemberNames] = useState('')
-  const [allPresent, setAllPresent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const resetForm = () => {
+    setName('')
+    setMemberNames('')
+    setPartySize(4)
+  }
+
+  const handleAdd = async (allPresent: boolean) => {
     if (!name.trim()) return
 
     setSubmitting(true)
@@ -27,10 +31,7 @@ export default function QuickAdd({ onRefetch }: QuickAddProps) {
         memberNames: memberNames.trim() || undefined,
         allPresent,
       })
-      setName('')
-      setMemberNames('')
-      setAllPresent(false)
-      setPartySize(4)
+      resetForm()
       onRefetch()
     } catch (err) {
       console.error('Failed to add group:', err)
@@ -57,7 +58,7 @@ export default function QuickAdd({ onRefetch }: QuickAddProps) {
 
       {expanded && (
         <div className="bg-gray-800 p-5">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={e => { e.preventDefault(); handleAdd(false) }} className="space-y-4">
             {/* Group Name */}
             <div>
               <label className="block text-sm font-semibold text-green-400 mb-1.5">
@@ -111,30 +112,30 @@ export default function QuickAdd({ onRefetch }: QuickAddProps) {
               />
             </div>
 
-            {/* All Present Checkbox */}
-            <label className="flex items-center gap-3 cursor-pointer py-1">
-              <input
-                type="checkbox"
-                checked={allPresent}
-                onChange={e => setAllPresent(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-500 bg-gray-700 text-queue-blue focus:ring-queue-blue focus:ring-offset-0"
-              />
-              <span className="text-gray-300 text-sm font-medium">
-                All members present (skip assembling, go to queue)
-              </span>
-            </label>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={!name.trim() || submitting}
-              className="w-full py-3.5 bg-queue-green hover:bg-green-700 active:bg-green-800 text-white font-bold text-base rounded-lg transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {allPresent ? 'ADD TO QUEUE' : 'ADD TO ASSEMBLING'}
-            </button>
+            {/* Two action buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="submit"
+                disabled={!name.trim() || submitting}
+                className="py-3.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-sm rounded-lg transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                ASSEMBLING
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAdd(true)}
+                disabled={!name.trim() || submitting}
+                className="py-3.5 bg-queue-green hover:bg-green-700 active:bg-green-800 text-white font-bold text-sm rounded-lg transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                DIRECT TO QUEUE
+              </button>
+            </div>
           </form>
         </div>
       )}

@@ -181,17 +181,17 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
                       ))}
                     </div>
 
-                    {/* Move to Queue button */}
+                    {/* Add to Queue button - always visible */}
                     <button
                       onClick={() => handleMoveToQueue(group.id)}
                       disabled={loading[group.id]}
-                      className={`w-full mt-3 py-3 font-bold rounded-lg transition-colors min-h-[44px] ${
+                      className={`w-full mt-3 py-3 font-bold text-base rounded-lg transition-colors min-h-[48px] disabled:opacity-50 ${
                         allHere
-                          ? 'bg-queue-green hover:bg-green-700 text-white'
+                          ? 'bg-queue-green hover:bg-green-700 text-white text-lg animate-pulse'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
                       }`}
                     >
-                      {allHere ? 'Move to Queue' : 'Move to Queue Anyway'}
+                      {allHere ? 'ADD TO QUEUE' : 'Add to Queue Anyway'}
                     </button>
                   </div>
                 )

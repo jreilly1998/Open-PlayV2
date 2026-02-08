@@ -52,21 +52,23 @@ export default function Dashboard() {
         </div>
 
         {/* RIGHT COLUMN (45%) */}
-        <div className="w-[45%] p-4 pl-0 flex flex-col gap-4 overflow-y-auto queue-scroll min-h-0">
-          {/* Assembling */}
-          <AssemblingSection
-            groups={data.assembling}
-            onRefetch={refetch}
-          />
+        <div className="w-[45%] p-4 pl-0 overflow-y-auto queue-scroll min-h-0">
+          <div className="flex flex-col gap-4">
+            {/* Assembling */}
+            <AssemblingSection
+              groups={data.assembling}
+              onRefetch={refetch}
+            />
 
-          {/* Scheduled Arrivals */}
-          <ScheduledArrivals
-            groups={data.preRegistered}
-            onRefetch={refetch}
-          />
+            {/* Scheduled Arrivals */}
+            <ScheduledArrivals
+              groups={data.preRegistered}
+              onRefetch={refetch}
+            />
 
-          {/* Quick Add */}
-          <QuickAdd onRefetch={refetch} />
+            {/* Quick Add */}
+            <QuickAdd onRefetch={refetch} />
+          </div>
         </div>
       </main>
 
