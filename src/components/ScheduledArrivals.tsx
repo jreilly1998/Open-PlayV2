@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { GroupData } from '@/lib/types'
-import { checkInGroup } from '@/lib/api'
+import { checkInGroup, moveToQueue } from '@/lib/api'
 
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -50,6 +50,16 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
     }
   }
 
+  const handleMoveToQueue = async (groupId: string) => {
+    setLoading(prev => ({ ...prev, [`queue-${groupId}`]: true }))
+    try {
+      await moveToQueue(groupId)
+      onRefetch()
+    } finally {
+      setLoading(prev => ({ ...prev, [`queue-${groupId}`]: false }))
+    }
+  }
+
   return (
     <div className="rounded-xl overflow-hidden border border-blue-200">
       {/* Header */}
@@ -72,7 +82,7 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
       </button>
 
       {expanded && (
-        <div className="bg-gray-50 max-h-[30vh] overflow-y-auto queue-scroll">
+        <div className="bg-gray-50">
           {groups.length === 0 ? (
             <div className="px-5 py-8 text-center text-gray-400">
               <p className="font-medium">No pre-registrations</p>
@@ -118,13 +128,22 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
                                 )}
                               </p>
                             </div>
-                            <button
-                              onClick={() => handleCheckIn(group.id)}
-                              disabled={loading[group.id]}
-                              className="px-4 py-2.5 bg-queue-blue hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors min-h-[44px] disabled:opacity-50"
-                            >
-                              CHECK IN
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleCheckIn(group.id)}
+                                disabled={loading[group.id]}
+                                className="px-4 py-2.5 bg-queue-blue hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors min-h-[44px] disabled:opacity-50"
+                              >
+                                CHECK IN
+                              </button>
+                              <button
+                                onClick={() => handleMoveToQueue(group.id)}
+                                disabled={loading[`queue-${group.id}`]}
+                                className="px-4 py-2.5 bg-queue-green hover:bg-green-700 text-white font-bold text-sm rounded-lg transition-colors min-h-[44px] disabled:opacity-50"
+                              >
+                                → QUEUE
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}

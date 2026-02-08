@@ -83,7 +83,7 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
       </button>
 
       {expanded && (
-        <div className="bg-gray-50 max-h-[40vh] overflow-y-auto queue-scroll">
+        <div className="bg-gray-50">
           {sorted.length === 0 ? (
             <div className="px-5 py-8 text-center text-gray-400">
               <p className="font-medium">No groups assembling</p>
@@ -182,15 +182,17 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
                     </div>
 
                     {/* Move to Queue button */}
-                    {!allHere && (
-                      <button
-                        onClick={() => handleMoveToQueue(group.id)}
-                        disabled={loading[group.id]}
-                        className="w-full mt-3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-lg transition-colors min-h-[44px]"
-                      >
-                        Move to Queue Anyway
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleMoveToQueue(group.id)}
+                      disabled={loading[group.id]}
+                      className={`w-full mt-3 py-3 font-bold rounded-lg transition-colors min-h-[44px] ${
+                        allHere
+                          ? 'bg-queue-green hover:bg-green-700 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {allHere ? 'Move to Queue' : 'Move to Queue Anyway'}
+                    </button>
                   </div>
                 )
               })}
