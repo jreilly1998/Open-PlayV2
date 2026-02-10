@@ -48,9 +48,9 @@ export async function GET() {
       if (!group.scheduledTime) return
 
       const dt = new Date(group.scheduledTime)
-      const dateKey = dt.toISOString().split('T')[0] // YYYY-MM-DD
-      const hours = dt.getHours()
-      const minutes = dt.getMinutes()
+      const dateKey = group.scheduledTime.split('T')[0] // YYYY-MM-DD from ISO string
+      const hours = dt.getUTCHours()
+      const minutes = dt.getUTCMinutes()
       // Round to nearest 30-min slot
       const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 0
       const roundedHours = minutes >= 45 ? hours + 1 : hours
