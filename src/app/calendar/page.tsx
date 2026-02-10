@@ -207,7 +207,7 @@ export default function MemberCalendar() {
                     </span>
                     {groups.length > 0 ? (
                       <span className="text-sm font-bold text-queue-blue">
-                        {groups.length} group{groups.length !== 1 ? 's' : ''}
+                        {groups.length} group{groups.length !== 1 ? 's' : ''} registered
                       </span>
                     ) : (
                       <span className="text-sm text-gray-400">Open</span>

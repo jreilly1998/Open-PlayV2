@@ -42,7 +42,7 @@ export default function StaffCalendar() {
   const currentTime = useCurrentTime()
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)
-  const [expandedSlot, setExpandedSlot] = useState<string | null>(null)
+  const [viewSlot, setViewSlot] = useState<{ date: string; time: string; groups: CalendarGroup[] } | null>(null)
 
   // Add form state
   const [formName, setFormName] = useState('')
@@ -89,8 +89,6 @@ export default function StaffCalendar() {
     if (!data?.calendar[date]?.[time]) return []
     return data.calendar[date][time]
   }
-
-  const getSlotKey = (date: string, time: string) => `${date}-${time}`
 
   const clockH = currentTime.getHours()
   const clockM = currentTime.getMinutes().toString().padStart(2, '0')
@@ -162,8 +160,6 @@ export default function StaffCalendar() {
               </div>
               {weekDates.map(date => {
                 const groups = getSlotGroups(date, time)
-                const slotKey = getSlotKey(date, time)
-                const isExpanded = expandedSlot === slotKey
                 const isPast = date < todayStr
 
                 return (
@@ -176,7 +172,7 @@ export default function StaffCalendar() {
                     {groups.length > 0 ? (
                       <div>
                         <button
-                          onClick={() => setExpandedSlot(isExpanded ? null : slotKey)}
+                          onClick={() => setViewSlot({ date, time, groups })}
                           className="w-full text-left px-2 py-1.5 rounded-md bg-queue-blue/10 hover:bg-queue-blue/20 transition-colors"
                         >
                           <span className="text-xs font-bold text-queue-blue">
@@ -186,16 +182,6 @@ export default function StaffCalendar() {
                             ({groups.reduce((s, g) => s + g.partySize, 0)} players)
                           </span>
                         </button>
-                        {isExpanded && (
-                          <div className="mt-1 space-y-1 fade-in">
-                            {groups.map(g => (
-                              <div key={g.id} className="text-xs bg-white rounded border border-gray-200 p-1.5">
-                                <div className="font-semibold text-gray-800">{g.name}</div>
-                                <div className="text-gray-500">{g.partySize} players</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                         {!isPast && (
                           <button
                             onClick={() => handleSlotClick(date, time)}
@@ -220,6 +206,65 @@ export default function StaffCalendar() {
           ))}
         </div>
       </main>
+
+      {/* View Groups Modal */}
+      {viewSlot && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="p-5 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {formatTimeSlot(viewSlot.time)} &mdash; {viewSlot.groups.length} group{viewSlot.groups.length !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {formatDate(viewSlot.date)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setViewSlot(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-5 space-y-2 max-h-[60vh] overflow-y-auto">
+              {viewSlot.groups.map(g => (
+                <div key={g.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div>
+                    <div className="font-semibold text-gray-900">{g.name}</div>
+                    <div className="text-sm text-gray-500">{g.partySize} player{g.partySize !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {g.members.map(m => m.name).join(', ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-5 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={() => setViewSlot(null)}
+                className="flex-1 py-3 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors min-h-[44px]"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const { date, time } = viewSlot
+                  setViewSlot(null)
+                  handleSlotClick(date, time)
+                }}
+                className="flex-1 py-3 bg-queue-blue hover:bg-blue-700 text-white font-bold rounded-lg transition-colors min-h-[44px]"
+              >
+                + Add Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Pre-Registration Modal */}
       {showAddForm && selectedSlot && (
