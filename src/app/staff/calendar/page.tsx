@@ -18,13 +18,20 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+function toLocalDateStr(d: Date): string {
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function getWeekDates(): string[] {
   const dates: string[] = []
   const now = new Date()
   for (let i = 0; i < 7; i++) {
     const d = new Date(now)
     d.setDate(now.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
+    dates.push(toLocalDateStr(d))
   }
   return dates
 }
@@ -51,7 +58,7 @@ export default function StaffCalendar() {
   const [submitting, setSubmitting] = useState(false)
 
   const weekDates = getWeekDates()
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = toLocalDateStr(new Date())
 
   const handleSlotClick = (date: string, time: string) => {
     setSelectedSlot({ date, time })
@@ -67,13 +74,12 @@ export default function StaffCalendar() {
 
     setSubmitting(true)
     try {
-      const scheduledTime = new Date(`${selectedSlot.date}T${selectedSlot.time}:00`)
       await createGroup({
         name: formName.trim(),
         partySize: formPartySize,
         memberNames: formMemberNames.trim() || undefined,
         isPreRegistered: true,
-        scheduledTime: scheduledTime.toISOString(),
+        scheduledTime: `${selectedSlot.date}T${selectedSlot.time}:00.000Z`,
       })
       setShowAddForm(false)
       setSelectedSlot(null)

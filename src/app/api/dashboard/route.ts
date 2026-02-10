@@ -58,8 +58,19 @@ export async function GET() {
         return new Date(a.assemblingAt).getTime() - new Date(b.assemblingAt).getTime()
       })
 
+    // Only show pre-registered groups whose scheduled date matches today
+    const todayDateStr = `${today.getFullYear()}-${(today.getMonth()+1).toString().padStart(2,'0')}-${today.getDate().toString().padStart(2,'0')}`
+
     const actualPreRegistered = allGroups
-      .filter(g => g.isPreRegistered && g.status === 'assembling' && !g.assemblingAt)
+      .filter(g => {
+        if (!g.isPreRegistered || g.status !== 'assembling' || g.assemblingAt) return false
+        // Filter to only today's scheduled groups
+        if (g.scheduledTime) {
+          const scheduledDate = g.scheduledTime.split('T')[0]
+          return scheduledDate === todayDateStr
+        }
+        return true
+      })
       .sort((a, b) => {
         if (!a.scheduledTime || !b.scheduledTime) return 0
         return new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
