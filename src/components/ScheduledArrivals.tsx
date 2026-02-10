@@ -4,11 +4,20 @@ import { useState } from 'react'
 import { GroupData } from '@/lib/types'
 import { checkInGroup, moveToQueue } from '@/lib/api'
 
+function formatTimeSlotStr(timeSlot: string | null): string {
+  if (!timeSlot) return ''
+  const [h, m] = timeSlot.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
+}
+
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return ''
+  // Use UTC to match the convention: scheduledTime encodes intended time as UTC
   const d = new Date(dateStr)
-  const h = d.getHours()
-  const m = d.getMinutes().toString().padStart(2, '0')
+  const h = d.getUTCHours()
+  const m = d.getUTCMinutes().toString().padStart(2, '0')
   const ampm = h >= 12 ? 'PM' : 'AM'
   return `${(h % 12 || 12).toString().padStart(2, '0')}:${m} ${ampm}`
 }
@@ -23,9 +32,13 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<Record<string, boolean>>({})
 
-  // Group by time slot (round to nearest 30 min)
+  // Group by time slot using plain string field when available
   const timeSlots = groups.reduce<Record<string, GroupData[]>>((acc, group) => {
-    const time = group.scheduledTime ? formatTime(group.scheduledTime) : 'Unscheduled'
+    const time = group.scheduledTimeSlot
+      ? formatTimeSlotStr(group.scheduledTimeSlot)
+      : group.scheduledTime
+      ? formatTime(group.scheduledTime)
+      : 'Unscheduled'
     if (!acc[time]) acc[time] = []
     acc[time].push(group)
     return acc

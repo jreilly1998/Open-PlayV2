@@ -4,7 +4,7 @@ import { getDb, ref, get, set, query, orderByChild, equalTo, generateId } from '
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, partySize, memberNames, allPresent, scheduledTime, isPreRegistered } = body
+    const { name, partySize, memberNames, allPresent, scheduledTime, scheduledDate, scheduledTimeSlot, isPreRegistered } = body
 
     if (!name || !partySize) {
       return NextResponse.json({ error: 'Name and party size required' }, { status: 400 })
@@ -56,6 +56,8 @@ export async function POST(request: NextRequest) {
         assemblingAt: null,
         teedOffAt: null,
         scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : null,
+        scheduledDate: scheduledDate || null,
+        scheduledTimeSlot: scheduledTimeSlot || null,
         isPreRegistered: isPreRegistered || false,
         createdAt: now,
         updatedAt: now,
@@ -80,6 +82,8 @@ export async function POST(request: NextRequest) {
         assemblingAt: isPreRegistered ? null : now,
         teedOffAt: null,
         scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : null,
+        scheduledDate: scheduledDate || null,
+        scheduledTimeSlot: scheduledTimeSlot || null,
         isPreRegistered: isPreRegistered || false,
         createdAt: now,
         updatedAt: now,

@@ -17,6 +17,8 @@ export interface GroupData {
   assemblingAt: string | null
   teedOffAt: string | null
   scheduledTime: string | null
+  scheduledDate: string | null
+  scheduledTimeSlot: string | null
   isPreRegistered: boolean
   createdAt: string
   updatedAt: string

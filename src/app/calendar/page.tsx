@@ -23,13 +23,20 @@ function formatDateShort(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+function toLocalDateStr(d: Date): string {
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function getWeekDates(): string[] {
   const dates: string[] = []
   const now = new Date()
   for (let i = 0; i < 7; i++) {
     const d = new Date(now)
     d.setDate(now.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
+    dates.push(toLocalDateStr(d))
   }
   return dates
 }
@@ -46,7 +53,7 @@ export default function MemberCalendar() {
   const { data, refetch } = useCalendar(10000)
   const currentTime = useCurrentTime()
   const weekDates = getWeekDates()
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = toLocalDateStr(new Date())
 
   // Day selection for mobile view
   const [selectedDay, setSelectedDay] = useState(todayStr)
@@ -73,13 +80,16 @@ export default function MemberCalendar() {
 
     setSubmitting(true)
     try {
-      const scheduledTime = new Date(`${selectedSlot.date}T${selectedSlot.time}:00`)
+      // Store date and time slot as plain strings to avoid timezone issues
+      const scheduledTime = `${selectedSlot.date}T${selectedSlot.time}:00.000Z`
       await createGroup({
         name: formName.trim(),
         partySize: formPartySize,
         memberNames: formMemberNames.trim() || undefined,
         isPreRegistered: true,
-        scheduledTime: scheduledTime.toISOString(),
+        scheduledTime,
+        scheduledDate: selectedSlot.date,
+        scheduledTimeSlot: selectedSlot.time,
       })
       setShowAddForm(false)
       setSelectedSlot(null)

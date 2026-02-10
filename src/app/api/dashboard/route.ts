@@ -58,12 +58,25 @@ export async function GET() {
         return new Date(a.assemblingAt).getTime() - new Date(b.assemblingAt).getTime()
       })
 
-    const actualPreRegistered = allGroups
+    // Today's date as YYYY-MM-DD (local server time, matching the club's timezone)
+    const now = new Date()
+    const todayDateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`
+
+    const allPreRegistered = allGroups
       .filter(g => g.isPreRegistered && g.status === 'assembling' && !g.assemblingAt)
       .sort((a, b) => {
         if (!a.scheduledTime || !b.scheduledTime) return 0
         return new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
       })
+
+    // Only show pre-registered groups scheduled for today or earlier (not future days)
+    const actualPreRegistered = allPreRegistered.filter(g => {
+      const groupDate = (g as Record<string, unknown>).scheduledDate as string | null
+      if (groupDate) return groupDate <= todayDateStr
+      // Fallback for old data without scheduledDate: use scheduledTime ISO date
+      if (g.scheduledTime) return g.scheduledTime.split('T')[0] <= todayDateStr
+      return true // include groups with no scheduled date
+    })
 
     const todayGroups = allGroups.filter(g => g.createdAt >= todayISO)
     const completedGroups = todayGroups.filter(g => g.status === 'completed')

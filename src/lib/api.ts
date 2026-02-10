@@ -6,6 +6,8 @@ export async function createGroup(data: {
   memberNames?: string
   allPresent?: boolean
   scheduledTime?: string
+  scheduledDate?: string
+  scheduledTimeSlot?: string
   isPreRegistered?: boolean
 }) {
   const res = await fetch('/api/groups', {
