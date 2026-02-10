@@ -1,82 +1,201 @@
 'use client'
 
-import { useDashboard } from '@/lib/hooks'
-import Toolbar from '@/components/Toolbar'
-import StatusBar from '@/components/StatusBar'
-import ActiveQueue from '@/components/ActiveQueue'
-import AssemblingSection from '@/components/AssemblingSection'
-import ScheduledArrivals from '@/components/ScheduledArrivals'
-import QuickAdd from '@/components/QuickAdd'
+import Link from 'next/link'
+import { useDashboard, useCurrentTime } from '@/lib/hooks'
 
-export default function Dashboard() {
-  const { data, lastUpdated, connectionStatus, refetch } = useDashboard(3000)
+function formatTime(date: Date) {
+  const h = date.getHours()
+  const m = date.getMinutes().toString().padStart(2, '0')
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${(h % 12 || 12)}:${m} ${ampm}`
+}
+
+export default function MemberQueue() {
+  const { data, lastUpdated, connectionStatus } = useDashboard(3000)
+  const currentTime = useCurrentTime()
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-queue-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 font-medium">Loading dashboard...</p>
+          <p className="text-gray-500 font-medium">Loading queue...</p>
         </div>
       </div>
     )
   }
 
+  const statusDot = {
+    live: 'bg-green-500',
+    reconnecting: 'bg-yellow-500 animate-pulse',
+    offline: 'bg-red-500',
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      {/* Top Toolbar */}
-      <Toolbar
-        settings={data.settings}
-        totalGroups={data.todayStats.totalGroups}
-        averageWaitMinutes={data.todayStats.averageWaitMinutes}
-        assemblingCount={data.todayStats.assemblingCount}
-        onRefetch={refetch}
-      />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">{data.settings.clubName}</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={`w-2 h-2 rounded-full ${statusDot[connectionStatus]}`} />
+              <span className="text-xs text-gray-500">
+                {connectionStatus === 'live' ? 'Live' : connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Offline'}
+              </span>
+              <span className="text-xs text-gray-400">{formatTime(currentTime)}</span>
+            </div>
+          </div>
+          <Link
+            href="/calendar"
+            className="px-4 py-2.5 bg-queue-blue text-white font-bold text-sm rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Calendar
+          </Link>
+        </div>
+      </header>
 
       {/* Paused Banner */}
       {data.settings.isPaused && (
-        <div className="bg-queue-red text-white text-center py-2 font-bold text-sm tracking-wide">
+        <div className="bg-queue-red text-white text-center py-3 font-bold text-sm tracking-wide">
           QUEUE IS PAUSED {data.settings.pauseReason ? `\u2014 ${data.settings.pauseReason}` : ''}
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* LEFT COLUMN - Active Queue (55%) */}
-        <div className="w-[55%] p-4 flex flex-col min-h-0">
-          <ActiveQueue
-            groups={data.queued}
-            isPaused={data.settings.isPaused}
-            onRefetch={refetch}
-          />
+      {/* Stats Bar */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-around text-center">
+          <div>
+            <div className="text-2xl font-bold text-gray-900">{data.queued.length}</div>
+            <div className="text-xs text-gray-500 font-medium">In Queue</div>
+          </div>
+          <div className="w-px h-8 bg-gray-200" />
+          <div>
+            <div className="text-2xl font-bold text-gray-900">~{data.todayStats.averageWaitMinutes}</div>
+            <div className="text-xs text-gray-500 font-medium">Min Wait</div>
+          </div>
+          <div className="w-px h-8 bg-gray-200" />
+          <div>
+            <div className="text-2xl font-bold text-gray-900">{data.todayStats.assemblingCount}</div>
+            <div className="text-xs text-gray-500 font-medium">Assembling</div>
+          </div>
         </div>
+      </div>
 
-        {/* RIGHT COLUMN (45%) */}
-        <div className="w-[45%] p-4 pl-0 flex flex-col gap-4 overflow-y-auto queue-scroll min-h-0">
-          {/* Assembling */}
-          <AssemblingSection
-            groups={data.assembling}
-            onRefetch={refetch}
-          />
+      {/* Queue List */}
+      <main className="flex-1 px-4 py-4">
+        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+          Current Queue
+        </h2>
 
-          {/* Scheduled Arrivals */}
-          <ScheduledArrivals
-            groups={data.preRegistered}
-            onRefetch={refetch}
-          />
+        {data.queued.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <div className="text-4xl mb-3">&#9971;</div>
+            <p className="font-bold text-gray-700">No groups in queue</p>
+            <p className="text-sm text-gray-500 mt-1">The course is wide open!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {data.queued.map((group, idx) => (
+              <div
+                key={group.id}
+                className={`bg-white rounded-xl border p-4 fade-in ${
+                  idx === 0
+                    ? 'border-queue-green shadow-sm ring-1 ring-queue-green/20'
+                    : idx === 1
+                    ? 'border-amber-300 shadow-sm'
+                    : 'border-gray-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                      idx === 0
+                        ? 'bg-queue-green text-white'
+                        : idx === 1
+                        ? 'bg-queue-amber text-white'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {group.position}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900">{group.name}</h3>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {Array.from({ length: group.partySize }).map((_, i) => (
+                          <svg key={i} className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                          </svg>
+                        ))}
+                        <span className="text-xs text-gray-500 ml-1">{group.partySize} players</span>
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Quick Add */}
-          <QuickAdd onRefetch={refetch} />
-        </div>
+                  {idx === 0 && (
+                    <span className="px-3 py-1.5 bg-queue-green text-white text-xs font-bold rounded-full on-deck-pulse">
+                      ON DECK
+                    </span>
+                  )}
+                  {idx === 1 && (
+                    <span className="px-3 py-1.5 bg-queue-amber text-white text-xs font-bold rounded-full">
+                      NEXT UP
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Assembling Groups */}
+        {data.assembling.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+              Assembling ({data.assembling.length})
+            </h2>
+            <div className="space-y-3">
+              {data.assembling.map(group => {
+                const arrived = group.members.filter(m => m.arrived).length
+                return (
+                  <div key={group.id} className="bg-white rounded-xl border border-amber-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-gray-900">{group.name}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {group.partySize} players
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-queue-amber">
+                          {arrived}/{group.partySize} arrived
+                        </div>
+                        <div className="flex gap-1 mt-1 justify-end">
+                          {group.members.map(m => (
+                            <div
+                              key={m.id}
+                              className={`w-3 h-3 rounded-full ${m.arrived ? 'bg-queue-green' : 'bg-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Bottom Status Bar */}
-      <StatusBar
-        lastUpdated={lastUpdated}
-        connectionStatus={connectionStatus}
-        completedGroups={data.todayStats.completedGroups}
-        onRetry={refetch}
-      />
+      {/* Bottom Bar */}
+      <footer className="bg-white border-t border-gray-200 px-4 py-3 text-center sticky bottom-0">
+        <p className="text-xs text-gray-400">
+          Auto-refreshes every 3 seconds &middot; {data.todayStats.completedGroups} groups served today
+        </p>
+      </footer>
     </div>
   )
 }

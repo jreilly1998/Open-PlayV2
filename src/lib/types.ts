@@ -42,3 +42,19 @@ export interface DashboardData {
     assemblingCount: number
   }
 }
+
+export interface CalendarGroup {
+  id: string
+  name: string
+  partySize: number
+  members: Array<{ id: string; name: string }>
+  scheduledTime: string
+}
+
+// { 'YYYY-MM-DD': { 'HH:MM': CalendarGroup[] } }
+export type CalendarData = Record<string, Record<string, CalendarGroup[]>>
+
+export interface CalendarResponse {
+  calendar: CalendarData
+  clubName: string
+}
