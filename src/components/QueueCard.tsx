@@ -39,8 +39,9 @@ export default function QueueCard({ group, index, onRefetch }: QueueCardProps) {
     opacity: isDragging ? 0.5 : 1,
   }
 
-  const isOnDeck = index === 0
-  const isInTheHole = index === 1
+  const isOnTheTee = index === 0
+  const isOnDeck = index === 1
+  const isInTheHole = index === 2
 
   const handleTeeOff = async () => {
     setTeeingOff(true)
@@ -64,7 +65,7 @@ export default function QueueCard({ group, index, onRefetch }: QueueCardProps) {
       style={style}
       className={`
         group-card bg-white rounded-xl border-2 p-4 fade-in
-        ${isOnDeck ? 'border-queue-green on-deck-pulse shadow-md' : 'border-gray-200'}
+        ${isOnTheTee ? 'border-queue-green on-deck-pulse shadow-md' : isOnDeck ? 'border-amber-300 shadow-md' : 'border-gray-200'}
         ${isDragging ? 'shadow-2xl z-50' : ''}
         ${teeingOff ? 'opacity-50 scale-95 transition-all duration-300' : ''}
       `}
@@ -88,13 +89,18 @@ export default function QueueCard({ group, index, onRefetch }: QueueCardProps) {
               <span className="text-3xl font-black text-gray-800">#{group.position}</span>
               <h3 className="text-lg font-bold text-gray-900 truncate">{group.name}</h3>
             </div>
-            {isOnDeck && (
+            {isOnTheTee && (
               <span className="px-3 py-1 bg-queue-green text-white text-xs font-bold rounded-md tracking-wide">
+                ON THE TEE
+              </span>
+            )}
+            {isOnDeck && (
+              <span className="px-3 py-1 bg-queue-amber text-white text-xs font-bold rounded-md tracking-wide">
                 ON DECK
               </span>
             )}
             {isInTheHole && (
-              <span className="px-3 py-1 bg-queue-green/80 text-white text-xs font-bold rounded-md tracking-wide">
+              <span className="px-3 py-1 bg-gray-500 text-white text-xs font-bold rounded-md tracking-wide">
                 IN THE HOLE
               </span>
             )}

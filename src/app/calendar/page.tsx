@@ -187,7 +187,6 @@ export default function MemberCalendar() {
         <div className="space-y-2">
           {TIME_SLOTS.map(time => {
             const groups = getSlotGroups(selectedDay, time)
-            const totalPlayers = groups.reduce((s, g) => s + g.partySize, 0)
             const isPast = selectedDay === todayStr && (() => {
               const [h, m] = time.split(':').map(Number)
               const now = new Date()
@@ -207,14 +206,9 @@ export default function MemberCalendar() {
                       {formatTimeSlot(time)}
                     </span>
                     {groups.length > 0 ? (
-                      <div>
-                        <span className="text-sm font-bold text-queue-blue">
-                          {groups.length} group{groups.length !== 1 ? 's' : ''}
-                        </span>
-                        <span className="text-xs text-gray-500 ml-1.5">
-                          {totalPlayers} player{totalPlayers !== 1 ? 's' : ''}
-                        </span>
-                      </div>
+                      <span className="text-sm font-bold text-queue-blue">
+                        {groups.length} group{groups.length !== 1 ? 's' : ''}
+                      </span>
                     ) : (
                       <span className="text-sm text-gray-400">Open</span>
                     )}
@@ -245,18 +239,6 @@ export default function MemberCalendar() {
                     ))}
                     {groups.length < 5 && Array.from({ length: 5 - Math.min(groups.length, 5) }).map((_, i) => (
                       <div key={`empty-${i}`} className="h-1.5 flex-1 rounded-full bg-gray-100" />
-                    ))}
-                  </div>
-                )}
-
-                {/* Show group details */}
-                {groups.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {groups.map(g => (
-                      <div key={g.id} className="text-xs text-gray-500 flex items-center gap-2">
-                        <span className="font-medium text-gray-700">{g.name}</span>
-                        <span>&middot; {g.partySize} player{g.partySize !== 1 ? 's' : ''}</span>
-                      </div>
                     ))}
                   </div>
                 )}

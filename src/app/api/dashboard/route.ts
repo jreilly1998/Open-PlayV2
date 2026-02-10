@@ -69,19 +69,8 @@ export async function GET() {
     const completedGroups = todayGroups.filter(g => g.status === 'completed')
     const assemblingCount = actualAssembling.length
 
-    // Calculate average wait time from completed groups
-    let averageWaitMinutes = 0
-    if (completedGroups.length > 0) {
-      const totalWait = completedGroups.reduce((sum, g) => {
-        if (g.enteredQueueAt && g.teedOffAt) {
-          return sum + (new Date(g.teedOffAt).getTime() - new Date(g.enteredQueueAt).getTime())
-        }
-        return sum
-      }, 0)
-      averageWaitMinutes = Math.round(totalWait / completedGroups.length / 60000)
-    } else if (queued.length > 0) {
-      averageWaitMinutes = queued.length * 8
-    }
+    // Estimate wait time: groups tee off every ~10 minutes
+    const averageWaitMinutes = queued.length * 10
 
     return NextResponse.json({
       queued,
