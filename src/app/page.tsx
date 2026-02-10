@@ -74,8 +74,8 @@ export default function MemberQueue() {
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div>
-            <div className="text-2xl font-bold text-gray-900">~{data.todayStats.averageWaitMinutes}</div>
-            <div className="text-xs text-gray-500 font-medium">Min Wait</div>
+            <div className="text-2xl font-bold text-gray-900">~{data.todayStats.averageWaitMinutes}m</div>
+            <div className="text-xs text-gray-500 font-medium">Est. Wait</div>
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div>
@@ -85,109 +85,127 @@ export default function MemberQueue() {
         </div>
       </div>
 
-      {/* Queue List */}
-      <main className="flex-1 px-4 py-4">
-        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-          Current Queue
-        </h2>
+      {/* Main Content - Two columns on desktop */}
+      <main className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
+        {/* LEFT: Queue List */}
+        <div className="flex-1 px-4 py-4 lg:overflow-y-auto">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+            Current Queue
+          </h2>
 
-        {data.queued.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <div className="text-4xl mb-3">&#9971;</div>
-            <p className="font-bold text-gray-700">No groups in queue</p>
-            <p className="text-sm text-gray-500 mt-1">The course is wide open!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {data.queued.map((group, idx) => (
-              <div
-                key={group.id}
-                className={`bg-white rounded-xl border p-4 fade-in ${
-                  idx === 0
-                    ? 'border-queue-green shadow-sm ring-1 ring-queue-green/20'
-                    : idx === 1
-                    ? 'border-amber-300 shadow-sm'
-                    : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                      idx === 0
-                        ? 'bg-queue-green text-white'
-                        : idx === 1
-                        ? 'bg-queue-amber text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {group.position}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900">{group.name}</h3>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {Array.from({ length: group.partySize }).map((_, i) => (
-                          <svg key={i} className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-                          </svg>
-                        ))}
-                        <span className="text-xs text-gray-500 ml-1">{group.partySize} players</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {idx === 0 && (
-                    <span className="px-3 py-1.5 bg-queue-green text-white text-xs font-bold rounded-full on-deck-pulse">
-                      ON DECK
-                    </span>
-                  )}
-                  {idx === 1 && (
-                    <span className="px-3 py-1.5 bg-queue-amber text-white text-xs font-bold rounded-full">
-                      NEXT UP
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Assembling Groups */}
-        {data.assembling.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-              Assembling ({data.assembling.length})
-            </h2>
+          {data.queued.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <div className="text-4xl mb-3">&#9971;</div>
+              <p className="font-bold text-gray-700">No groups in queue</p>
+              <p className="text-sm text-gray-500 mt-1">The course is wide open!</p>
+            </div>
+          ) : (
             <div className="space-y-3">
-              {data.assembling.map(group => {
-                const arrived = group.members.filter(m => m.arrived).length
+              {data.queued.map((group, idx) => {
+                const label = idx === 0 ? 'ON THE TEE' : idx === 1 ? 'ON DECK' : idx === 2 ? 'IN THE HOLE' : null
+                const labelColor = idx === 0 ? 'bg-queue-green' : idx === 1 ? 'bg-queue-amber' : 'bg-gray-500'
                 return (
-                  <div key={group.id} className="bg-white rounded-xl border border-amber-200 p-4">
+                  <div
+                    key={group.id}
+                    className={`bg-white rounded-xl border p-4 fade-in ${
+                      idx === 0
+                        ? 'border-queue-green shadow-sm ring-1 ring-queue-green/20'
+                        : idx === 1
+                        ? 'border-amber-300 shadow-sm'
+                        : idx === 2
+                        ? 'border-gray-300 shadow-sm'
+                        : 'border-gray-200'
+                    }`}
+                  >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-gray-900">{group.name}</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {group.partySize} players
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-queue-amber">
-                          {arrived}/{group.partySize} arrived
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                          idx === 0
+                            ? 'bg-queue-green text-white'
+                            : idx === 1
+                            ? 'bg-queue-amber text-white'
+                            : idx === 2
+                            ? 'bg-gray-400 text-white'
+                            : 'bg-gray-200 text-gray-600'
+                        }`}>
+                          {group.position}
                         </div>
-                        <div className="flex gap-1 mt-1 justify-end">
-                          {group.members.map(m => (
-                            <div
-                              key={m.id}
-                              className={`w-3 h-3 rounded-full ${m.arrived ? 'bg-queue-green' : 'bg-gray-300'}`}
-                            />
-                          ))}
+                        <div>
+                          <h3 className="font-bold text-gray-900">{group.name}</h3>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {Array.from({ length: group.partySize }).map((_, i) => (
+                              <svg key={i} className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                              </svg>
+                            ))}
+                            <span className="text-xs text-gray-500 ml-1">{group.partySize} players</span>
+                          </div>
                         </div>
                       </div>
+
+                      {label && (
+                        <span className={`px-3 py-1.5 ${labelColor} text-white text-xs font-bold rounded-full ${idx === 0 ? 'on-deck-pulse' : ''}`}>
+                          {label}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* RIGHT: Groups Assembling (desktop side panel) */}
+        {(() => {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const todayAssembling = data.assembling.filter(group => {
+            if (group.assemblingAt) {
+              return group.assemblingAt.startsWith(todayStr)
+            }
+            if (group.scheduledTime) {
+              return group.scheduledTime.startsWith(todayStr)
+            }
+            return group.createdAt.startsWith(todayStr)
+          })
+          return todayAssembling.length > 0 ? (
+            <div className="lg:w-[380px] lg:border-l lg:border-gray-200 px-4 py-4 lg:overflow-y-auto">
+              <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                Groups Assembling ({todayAssembling.length})
+              </h2>
+              <div className="space-y-3">
+                {todayAssembling.map(group => {
+                  const arrived = group.members.filter(m => m.arrived).length
+                  return (
+                    <div key={group.id} className="bg-white rounded-xl border border-amber-200 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-gray-900">{group.name}</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {group.partySize} players
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-queue-amber">
+                            {arrived}/{group.partySize} arrived
+                          </div>
+                          <div className="flex gap-1 mt-1 justify-end">
+                            {group.members.map(m => (
+                              <div
+                                key={m.id}
+                                className={`w-3 h-3 rounded-full ${m.arrived ? 'bg-queue-green' : 'bg-gray-300'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null
+        })()}
       </main>
 
       {/* Bottom Bar */}
