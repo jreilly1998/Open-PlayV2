@@ -40,7 +40,7 @@ export default function QuickAdd({ onRefetch }: QuickAddProps) {
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-600">
+    <div className="rounded-xl overflow-hidden border border-gray-600 shrink-0">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
