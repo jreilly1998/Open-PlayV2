@@ -61,7 +61,7 @@ export default function ScheduledArrivals({ groups, onRefetch }: ScheduledArriva
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-blue-200">
+    <div className="rounded-xl overflow-hidden border border-blue-200 shrink-0">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}

@@ -62,7 +62,7 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
   })
 
   return (
-    <div className="rounded-xl overflow-hidden border border-amber-200">
+    <div className="rounded-xl overflow-hidden border border-amber-200 shrink-0">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
