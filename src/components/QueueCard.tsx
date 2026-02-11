@@ -19,9 +19,10 @@ interface QueueCardProps {
   group: GroupData
   index: number
   onRefetch: () => void
+  isOverlay?: boolean
 }
 
-export default function QueueCard({ group, index, onRefetch }: QueueCardProps) {
+export default function QueueCard({ group, index, onRefetch, isOverlay }: QueueCardProps) {
   const [teeingOff, setTeeingOff] = useState(false)
 
   const {
@@ -31,13 +32,15 @@ export default function QueueCard({ group, index, onRefetch }: QueueCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: group.id })
+  } = useSortable({ id: group.id, disabled: isOverlay })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const style: React.CSSProperties = isOverlay
+    ? { cursor: 'grabbing' }
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.3 : 1,
+      }
 
   const isOnTheTee = index === 0
   const isOnDeck = index === 1
@@ -66,7 +69,8 @@ export default function QueueCard({ group, index, onRefetch }: QueueCardProps) {
       className={`
         group-card bg-white rounded-xl border-2 p-4 fade-in
         ${isOnTheTee ? 'border-queue-green on-deck-pulse shadow-md' : isOnDeck ? 'border-amber-300 shadow-md' : 'border-gray-200'}
-        ${isDragging ? 'shadow-2xl z-50' : ''}
+        ${isDragging ? 'z-50' : ''}
+        ${isOverlay ? 'shadow-2xl ring-2 ring-queue-green/30 rotate-[1deg]' : ''}
         ${teeingOff ? 'opacity-50 scale-95 transition-all duration-300' : ''}
       `}
     >
