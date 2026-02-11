@@ -12,7 +12,7 @@ export async function GET() {
     const settingsSnap = await get(ref(db, 'settings/default'))
     let settings = settingsSnap.val()
     if (!settings) {
-      settings = { id: 'default', clubName: 'Fairview Golf Club', isPaused: false, pauseReason: null }
+      settings = { id: 'default', clubName: 'Orinda Country Club', isPaused: false, pauseReason: null }
       await set(ref(db, 'settings/default'), settings)
     }
 
