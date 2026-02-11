@@ -99,6 +99,16 @@ body {
   animation: readyGlow 2s ease-in-out infinite;
 }
 
+/* Time slot tap/click feedback */
+.slot-button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.slot-button:active {
+  transition-duration: 0.05s;
+}
+
 /* Hide scrollbar for mobile horizontal scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
