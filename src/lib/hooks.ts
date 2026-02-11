@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardData, CalendarResponse } from './types'
 
-export function useDashboard(pollInterval = 3000) {
+export function useDashboard(pollInterval = 30000) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
@@ -40,7 +40,7 @@ export function useDashboard(pollInterval = 3000) {
   return { data, error, lastUpdated, connectionStatus, refetch: fetchData }
 }
 
-export function useCalendar(pollInterval = 10000) {
+export function useCalendar(pollInterval = 30000) {
   const [data, setData] = useState<CalendarResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const retryCountRef = useRef(0)

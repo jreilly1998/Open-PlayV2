@@ -45,7 +45,7 @@ const TIME_SLOTS = [
 ]
 
 export default function StaffCalendar() {
-  const { data, refetch } = useCalendar(10000)
+  const { data, refetch } = useCalendar()
   const currentTime = useCurrentTime()
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)

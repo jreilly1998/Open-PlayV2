@@ -9,7 +9,7 @@ import AssemblingSection from '@/components/AssemblingSection'
 import QuickAdd from '@/components/QuickAdd'
 
 export default function StaffDashboard() {
-  const { data, lastUpdated, connectionStatus, refetch } = useDashboard(3000)
+  const { data, lastUpdated, connectionStatus, refetch } = useDashboard()
 
   if (!data) {
     return (
