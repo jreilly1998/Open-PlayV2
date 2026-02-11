@@ -41,6 +41,13 @@ function getWeekDates(): string[] {
   return dates
 }
 
+function getSlotBg(groupCount: number): string {
+  if (groupCount >= 5) return 'bg-red-50 border-red-200'
+  if (groupCount >= 3) return 'bg-yellow-50 border-yellow-200'
+  if (groupCount >= 1) return 'bg-blue-50 border-blue-200'
+  return 'bg-gray-50 border-gray-200'
+}
+
 const TIME_SLOTS = [
   '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -202,17 +209,19 @@ export default function MemberCalendar() {
             return (
               <div
                 key={time}
-                className={`bg-white rounded-xl border p-3 ${
-                  isPast ? 'opacity-50 border-gray-100' : 'border-gray-200'
+                className={`group/slot rounded-xl border p-3 transition-colors ${
+                  isPast ? 'opacity-50 bg-gray-50 border-gray-100' : getSlotBg(groups.length)
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-700 w-[80px]">
+                    <span className={`text-sm w-[80px] ${
+                      groups.length > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-500'
+                    }`}>
                       {formatTimeSlot(time)}
                     </span>
                     {groups.length > 0 ? (
-                      <span className="text-sm font-bold text-queue-blue">
+                      <span className="text-sm font-bold text-gray-800">
                         {groups.length} group{groups.length !== 1 ? 's' : ''} registered
                       </span>
                     ) : (
@@ -223,31 +232,12 @@ export default function MemberCalendar() {
                   {!isPast && (
                     <button
                       onClick={() => handleSlotClick(selectedDay, time)}
-                      className="px-3 py-2 text-sm font-bold text-queue-blue hover:bg-blue-50 rounded-lg transition-colors min-h-[40px]"
+                      className="px-3 py-2 text-sm font-bold text-queue-blue hover:bg-white/60 rounded-lg transition-all min-h-[40px] opacity-0 group-hover/slot:opacity-100"
                     >
                       + Register
                     </button>
                   )}
                 </div>
-
-                {/* Demand Indicator */}
-                {groups.length > 0 && (
-                  <div className="mt-2 flex gap-1">
-                    {Array.from({ length: Math.min(groups.length, 5) }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-1.5 flex-1 rounded-full ${
-                          groups.length >= 4 ? 'bg-queue-red' :
-                          groups.length >= 2 ? 'bg-queue-amber' :
-                          'bg-queue-green'
-                        }`}
-                      />
-                    ))}
-                    {groups.length < 5 && Array.from({ length: 5 - Math.min(groups.length, 5) }).map((_, i) => (
-                      <div key={`empty-${i}`} className="h-1.5 flex-1 rounded-full bg-gray-100" />
-                    ))}
-                  </div>
-                )}
               </div>
             )
           })}
