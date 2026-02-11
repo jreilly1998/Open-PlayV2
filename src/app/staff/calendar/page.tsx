@@ -36,6 +36,20 @@ function getWeekDates(): string[] {
   return dates
 }
 
+function getSlotBg(groupCount: number): string {
+  if (groupCount >= 5) return 'bg-red-50'
+  if (groupCount >= 3) return 'bg-yellow-50'
+  if (groupCount >= 1) return 'bg-blue-50'
+  return ''
+}
+
+function getSlotBorder(groupCount: number): string {
+  if (groupCount >= 5) return 'border-l-2 border-l-red-400'
+  if (groupCount >= 3) return 'border-l-2 border-l-yellow-400'
+  if (groupCount >= 1) return 'border-l-2 border-l-blue-400'
+  return ''
+}
+
 const TIME_SLOTS = [
   '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -171,17 +185,19 @@ export default function StaffCalendar() {
                 return (
                   <div
                     key={date}
-                    className={`border-r border-gray-100 last:border-r-0 p-1 min-h-[52px] ${
-                      date === todayStr ? 'bg-blue-50/50' : ''
-                    } ${isPast ? 'opacity-50' : ''}`}
+                    className={`group/cell border-r border-gray-100 last:border-r-0 p-1 min-h-[52px] ${
+                      getSlotBg(groups.length)
+                    } ${date === todayStr && groups.length === 0 ? 'bg-blue-50/50' : ''} ${
+                      isPast ? 'opacity-50' : ''
+                    } ${getSlotBorder(groups.length)}`}
                   >
                     {groups.length > 0 ? (
                       <div>
                         <button
                           onClick={() => setViewSlot({ date, time, groups })}
-                          className="w-full text-left px-2 py-1.5 rounded-md bg-queue-blue/10 hover:bg-queue-blue/20 transition-colors"
+                          className="w-full text-left px-2 py-1.5 rounded-md hover:bg-white/50 transition-colors"
                         >
-                          <span className="text-xs font-bold text-queue-blue">
+                          <span className="text-xs font-bold text-gray-800">
                             {groups.length} group{groups.length !== 1 ? 's' : ''}
                           </span>
                           <span className="text-xs text-gray-500 ml-1">
@@ -191,19 +207,22 @@ export default function StaffCalendar() {
                         {!isPast && (
                           <button
                             onClick={() => handleSlotClick(date, time)}
-                            className="mt-1 w-full text-xs text-gray-400 hover:text-queue-blue transition-colors py-0.5"
+                            className="mt-0.5 w-full text-xs text-gray-400 hover:text-queue-blue transition-all py-0.5 opacity-0 group-hover/cell:opacity-100"
                           >
                             + Add
                           </button>
                         )}
                       </div>
                     ) : !isPast ? (
-                      <button
-                        onClick={() => handleSlotClick(date, time)}
-                        className="w-full h-full min-h-[40px] flex items-center justify-center text-gray-300 hover:text-queue-blue hover:bg-blue-50 rounded transition-colors text-xs"
-                      >
-                        +
-                      </button>
+                      <div className="w-full h-full min-h-[40px] flex items-center justify-center">
+                        <span className="text-xs text-gray-300 group-hover/cell:hidden">Open</span>
+                        <button
+                          onClick={() => handleSlotClick(date, time)}
+                          className="hidden group-hover/cell:flex w-full h-full min-h-[40px] items-center justify-center text-queue-blue hover:bg-blue-50 rounded transition-colors text-xs font-medium"
+                        >
+                          + Add
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 )
