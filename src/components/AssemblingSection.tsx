@@ -13,6 +13,16 @@ function formatTime(dateStr: string | null): string {
   return `${(h % 12 || 12).toString().padStart(2, '0')}:${m} ${ampm}`
 }
 
+function formatScheduledTime(dateStr: string | null): string {
+  if (!dateStr) return ''
+  // scheduledTime stores conceptual local time as UTC, so use UTC methods
+  const d = new Date(dateStr)
+  const h = d.getUTCHours()
+  const m = d.getUTCMinutes().toString().padStart(2, '0')
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${(h % 12 || 12).toString().padStart(2, '0')}:${m} ${ampm}`
+}
+
 interface AssemblingSectionProps {
   groups: GroupData[]
   onRefetch: () => void
@@ -129,7 +139,11 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
                           <span className="text-sm text-gray-400">({pct}%)</span>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
-                          Started {formatTime(group.assemblingAt)}
+                          {group.assemblingAt
+                            ? `Started ${formatTime(group.assemblingAt)}`
+                            : group.scheduledTime
+                              ? `Scheduled ${formatScheduledTime(group.scheduledTime)}`
+                              : ''}
                         </p>
                       </div>
                       <button
