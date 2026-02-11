@@ -36,6 +36,11 @@ function getWeekDates(): string[] {
   return dates
 }
 
+function formatDateFull(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
 function getSlotBg(groupCount: number): string {
   if (groupCount >= 5) return 'bg-red-50'
   if (groupCount >= 3) return 'bg-yellow-50'
@@ -64,6 +69,7 @@ export default function StaffCalendar() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)
   const [viewSlot, setViewSlot] = useState<{ date: string; time: string; groups: CalendarGroup[] } | null>(null)
+  const [printDate, setPrintDate] = useState<string | null>(null)
 
   // Add form state
   const [formName, setFormName] = useState('')
@@ -161,8 +167,9 @@ export default function StaffCalendar() {
             {weekDates.map(date => (
               <div
                 key={date}
-                className={`p-3 text-center border-r border-gray-100 last:border-r-0 ${
-                  date === todayStr ? 'bg-blue-50' : ''
+                onClick={() => setPrintDate(date)}
+                className={`p-3 text-center border-r border-gray-100 last:border-r-0 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  date === todayStr ? 'bg-blue-50 hover:bg-blue-100' : ''
                 }`}
               >
                 <div className={`text-xs font-bold ${date === todayStr ? 'text-queue-blue' : 'text-gray-800'}`}>
@@ -290,6 +297,104 @@ export default function StaffCalendar() {
           </div>
         </div>
       )}
+
+      {/* Print Day Sheet Modal */}
+      {printDate && data && (() => {
+        const daySlots = data.calendar[printDate] || {}
+        const sortedTimes = Object.keys(daySlots).sort()
+        const allGroups: Array<{ time: string; group: CalendarGroup }> = []
+        for (const time of sortedTimes) {
+          for (const group of daySlots[time]) {
+            allGroups.push({ time, group })
+          }
+        }
+        const totalGroups = allGroups.length
+        const totalPlayers = allGroups.reduce((sum, { group }) => sum + group.partySize, 0)
+
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" id="print-day-sheet-backdrop">
+            <div id="print-day-sheet" className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Day Sheet
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {formatDateFull(printDate)}
+                  </p>
+                  {data.clubName && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {data.clubName}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setPrintDate(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-5 overflow-y-auto flex-1">
+                {allGroups.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No pre-registrations for this day.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {allGroups.map(({ time, group }) => (
+                      <div key={group.id} className="py-2 border-b border-gray-100 last:border-b-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-bold text-gray-900 w-20 shrink-0">
+                            {formatTimeSlot(time)}
+                          </span>
+                          <span className="text-sm font-semibold text-gray-800">
+                            {group.name}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            ({group.partySize} player{group.partySize !== 1 ? 's' : ''})
+                          </span>
+                        </div>
+                        {group.members.length > 0 && (
+                          <div className="ml-20 text-sm text-gray-500">
+                            {group.members.map(m => m.name).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Summary & Actions */}
+              <div className="p-5 border-t border-gray-200">
+                <div className="mb-4">
+                  <div className="text-sm font-semibold text-gray-600">
+                    Total: {totalGroups} group{totalGroups !== 1 ? 's' : ''} &middot; {totalPlayers} player{totalPlayers !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setPrintDate(null)}
+                    className="flex-1 py-3 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors min-h-[44px]"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="flex-1 py-3 bg-gray-800 hover:bg-gray-900 text-white font-bold rounded-lg transition-colors min-h-[44px]"
+                  >
+                    Print Day Sheet
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Add Pre-Registration Modal */}
       {showAddForm && selectedSlot && (
