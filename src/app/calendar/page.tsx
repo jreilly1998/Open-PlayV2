@@ -50,7 +50,7 @@ const TIME_SLOTS = [
 ]
 
 export default function MemberCalendar() {
-  const { data, refetch } = useCalendar(10000)
+  const { data, refetch } = useCalendar()
   const currentTime = useCurrentTime()
   const weekDates = getWeekDates()
   const todayStr = toLocalDateStr(new Date())

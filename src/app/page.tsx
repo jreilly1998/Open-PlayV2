@@ -11,7 +11,7 @@ function formatTime(date: Date) {
 }
 
 export default function MemberQueue() {
-  const { data, lastUpdated, connectionStatus } = useDashboard(3000)
+  const { data, lastUpdated, connectionStatus } = useDashboard()
   const currentTime = useCurrentTime()
 
   if (!data) {
@@ -211,7 +211,7 @@ export default function MemberQueue() {
       {/* Bottom Bar */}
       <footer className="bg-white border-t border-gray-200 px-4 py-3 text-center sticky bottom-0">
         <p className="text-xs text-gray-400">
-          Auto-refreshes every 3 seconds &middot; {data.todayStats.completedGroups} groups served today
+          Auto-refreshes every 30 seconds &middot; {data.todayStats.completedGroups} groups served today
         </p>
       </footer>
     </div>
