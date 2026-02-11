@@ -108,3 +108,71 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Print Day Sheet styles */
+@media print {
+  /* Hide everything on the page */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the print day sheet content */
+  #print-day-sheet,
+  #print-day-sheet * {
+    visibility: visible;
+  }
+
+  /* Position the print content at the top of the page */
+  #print-day-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: transparent !important;
+    display: block;
+  }
+
+  #print-day-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Hide buttons and close icon when printing */
+  #print-day-sheet button {
+    display: none !important;
+  }
+
+  /* But show the summary text (not inside a button) */
+  #print-day-sheet [data-print-summary] {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Ensure content scrolls are visible */
+  #print-day-sheet .overflow-y-auto {
+    overflow: visible !important;
+  }
+
+  /* Enlarge text for readability */
+  #print-day-sheet h3 {
+    font-size: 1.5rem;
+  }
+
+  #print-day-sheet p,
+  #print-day-sheet span,
+  #print-day-sheet div {
+    color: black !important;
+  }
+
+  @page {
+    margin: 0.75in;
+    size: auto;
+  }
+}
