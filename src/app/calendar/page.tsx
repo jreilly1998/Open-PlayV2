@@ -18,11 +18,6 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
-
 function toLocalDateStr(d: Date): string {
   const year = d.getFullYear()
   const month = (d.getMonth() + 1).toString().padStart(2, '0')
@@ -30,25 +25,24 @@ function toLocalDateStr(d: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function getWeekDates(): string[] {
+// Only show Fridays, Saturdays, and Sundays
+function getAvailableDates(): string[] {
   const dates: string[] = []
   const now = new Date()
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 14; i++) {
     const d = new Date(now)
     d.setDate(now.getDate() + i)
-    dates.push(toLocalDateStr(d))
+    const day = d.getDay()
+    // 0 = Sunday, 5 = Friday, 6 = Saturday
+    if (day === 0 || day === 5 || day === 6) {
+      dates.push(toLocalDateStr(d))
+    }
   }
   return dates
 }
 
-function getSlotBg(groupCount: number): string {
-  if (groupCount >= 5) return 'bg-red-50 border-red-200'
-  if (groupCount >= 3) return 'bg-yellow-50 border-yellow-200'
-  if (groupCount >= 1) return 'bg-blue-50 border-blue-200'
-  return 'bg-gray-50 border-gray-200'
-}
-
-const TIME_SLOTS = [
+// Friday: all day (6:00 AM - 6:00 PM)
+const FRIDAY_TIME_SLOTS = [
   '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
   '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
@@ -56,16 +50,33 @@ const TIME_SLOTS = [
   '18:00',
 ]
 
+// Saturday & Sunday: 6:30 AM - 10:50 AM only
+const WEEKEND_TIME_SLOTS = [
+  '06:30', '07:00', '07:30', '08:00', '08:30',
+  '09:00', '09:30', '10:00', '10:30',
+]
+
+function getTimeSlotsForDate(dateStr: string): string[] {
+  const d = new Date(dateStr + 'T12:00:00')
+  const day = d.getDay()
+  if (day === 5) return FRIDAY_TIME_SLOTS
+  return WEEKEND_TIME_SLOTS
+}
+
+function getSlotBg(groupCount: number): string {
+  if (groupCount >= 5) return 'bg-red-50 border-red-300'
+  if (groupCount >= 3) return 'bg-yellow-50 border-yellow-300'
+  if (groupCount >= 1) return 'bg-blue-50 border-blue-300'
+  return 'bg-white border-gray-200'
+}
+
 export default function MemberCalendar() {
   const { data, refetch } = useCalendar()
   const currentTime = useCurrentTime()
-  const weekDates = getWeekDates()
+  const availableDates = getAvailableDates()
   const todayStr = toLocalDateStr(new Date())
 
-  // Day selection for mobile view
-  const [selectedDay, setSelectedDay] = useState(todayStr)
-
-  // Add form state
+  const [selectedDay, setSelectedDay] = useState(availableDates[0] || todayStr)
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)
   const [formName, setFormName] = useState('')
@@ -121,6 +132,8 @@ export default function MemberCalendar() {
     return `${(h % 12 || 12)}:${m} ${ampm}`
   }
 
+  const timeSlotsForDay = getTimeSlotsForDate(selectedDay)
+
   if (!data) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -156,7 +169,7 @@ export default function MemberCalendar() {
       {/* Day Selector - horizontal scrollable */}
       <div className="bg-white border-b border-gray-200 sticky top-[61px] z-10">
         <div className="flex overflow-x-auto py-2 px-2 gap-1 no-scrollbar">
-          {weekDates.map(date => {
+          {availableDates.map(date => {
             const dayTotal = getDayTotal(date)
             const isSelected = date === selectedDay
             const isToday = date === todayStr
@@ -194,11 +207,11 @@ export default function MemberCalendar() {
       {/* Time Slots for Selected Day */}
       <main className="flex-1 px-4 py-4">
         <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-          {formatDateShort(selectedDay)}
+          {formatDate(selectedDay)}
         </h2>
 
         <div className="space-y-2">
-          {TIME_SLOTS.map(time => {
+          {timeSlotsForDay.map(time => {
             const groups = getSlotGroups(selectedDay, time)
             const isPast = selectedDay === todayStr && (() => {
               const [h, m] = time.split(':').map(Number)
@@ -206,12 +219,28 @@ export default function MemberCalendar() {
               return h < now.getHours() || (h === now.getHours() && m < now.getMinutes())
             })()
 
+            if (isPast) {
+              return (
+                <div
+                  key={time}
+                  className="rounded-xl border border-gray-100 p-3 opacity-40 bg-gray-50 min-h-[48px] flex items-center"
+                >
+                  <span className="text-sm font-medium text-gray-400 w-[80px]">{formatTimeSlot(time)}</span>
+                  <span className="text-sm text-gray-300">Past</span>
+                </div>
+              )
+            }
+
             return (
-              <div
+              <button
                 key={time}
-                className={`group/slot rounded-xl border p-3 transition-colors ${
-                  isPast ? 'opacity-50 bg-gray-50 border-gray-100' : getSlotBg(groups.length)
-                }`}
+                type="button"
+                onClick={() => handleSlotClick(selectedDay, time)}
+                className={`slot-button w-full text-left rounded-xl border-2 p-3 min-h-[48px] transition-all cursor-pointer
+                  hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5
+                  active:scale-[0.98] active:shadow-none active:bg-blue-100
+                  ${getSlotBg(groups.length)}
+                `}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -228,17 +257,14 @@ export default function MemberCalendar() {
                       <span className="text-sm text-gray-400">Open</span>
                     )}
                   </div>
-
-                  {!isPast && (
-                    <button
-                      onClick={() => handleSlotClick(selectedDay, time)}
-                      className="px-3 py-2 text-sm font-bold text-queue-blue hover:bg-white/60 rounded-lg transition-all min-h-[40px] opacity-0 group-hover/slot:opacity-100"
-                    >
-                      + Register
-                    </button>
-                  )}
+                  <span className="text-sm font-bold text-queue-blue flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="hidden sm:inline">Register</span>
+                  </span>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
