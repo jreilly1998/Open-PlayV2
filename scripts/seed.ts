@@ -34,7 +34,7 @@ async function main() {
   // Create settings
   await set(ref(db, 'settings/default'), {
     id: 'default',
-    clubName: 'Fairview Golf Club',
+    clubName: 'Orinda Country Club',
     isPaused: false,
     pauseReason: null,
   })

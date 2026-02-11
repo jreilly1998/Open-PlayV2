@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest) {
     if (!settings) {
       settings = {
         id: 'default',
-        clubName: clubName || 'Fairview Golf Club',
+        clubName: clubName || 'Orinda Country Club',
         isPaused: isPaused || false,
         pauseReason: pauseReason || null,
       }
