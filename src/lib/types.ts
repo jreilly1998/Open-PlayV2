@@ -33,7 +33,6 @@ export interface QueueSettingsData {
 export interface DashboardData {
   queued: GroupData[]
   assembling: GroupData[]
-  preRegistered: GroupData[]
   settings: QueueSettingsData
   todayStats: {
     totalGroups: number

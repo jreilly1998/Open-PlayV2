@@ -6,7 +6,6 @@ import Toolbar from '@/components/Toolbar'
 import StatusBar from '@/components/StatusBar'
 import ActiveQueue from '@/components/ActiveQueue'
 import AssemblingSection from '@/components/AssemblingSection'
-import ScheduledArrivals from '@/components/ScheduledArrivals'
 import QuickAdd from '@/components/QuickAdd'
 
 export default function StaffDashboard() {
@@ -70,12 +69,6 @@ export default function StaffDashboard() {
           {/* Assembling */}
           <AssemblingSection
             groups={data.assembling}
-            onRefetch={refetch}
-          />
-
-          {/* Scheduled Arrivals */}
-          <ScheduledArrivals
-            groups={data.preRegistered}
             onRefetch={refetch}
           />
 
