@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getDb, ref, get } from '@/lib/firebase'
+import { getStartOfTodayISOInTz } from '@/lib/timezone'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
     const db = getDb()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayISO = today.toISOString()
+    const todayISO = getStartOfTodayISOInTz()
 
     const groupsSnap = await get(ref(db, 'groups'))
     const allGroupsRaw = groupsSnap.val() || {}

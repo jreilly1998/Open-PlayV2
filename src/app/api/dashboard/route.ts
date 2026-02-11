@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb, ref, get, set } from '@/lib/firebase'
+import { getTodayDateStrInTz, getStartOfTodayISOInTz } from '@/lib/timezone'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,9 +16,7 @@ export async function GET() {
       await set(ref(db, 'settings/default'), settings)
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayISO = today.toISOString()
+    const todayISO = getStartOfTodayISOInTz()
 
     // Fetch all groups
     const groupsSnap = await get(ref(db, 'groups'))
@@ -51,7 +50,7 @@ export async function GET() {
       .filter(g => g.status === 'queued')
       .sort((a, b) => a.position - b.position)
 
-    const todayDateStr = `${today.getFullYear()}-${(today.getMonth()+1).toString().padStart(2,'0')}-${today.getDate().toString().padStart(2,'0')}`
+    const todayDateStr = getTodayDateStrInTz()
 
     const actualAssembling = allGroups
       .filter(g => {
