@@ -80,17 +80,17 @@ export async function GET() {
     // Estimate wait time: groups tee off every ~10 minutes
     const averageWaitMinutes = queued.length * 10
 
-    // Calculate spike time: assembling groups likely to enter queue within 30 minutes
+    // Calculate spike time: only include assembling groups that will realistically
+    // enter the queue before your projected tee time
     const now = new Date()
-    const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000)
+    const projectedTeeTime = new Date(now.getTime() + averageWaitMinutes * 60 * 1000)
     const spikeGroupCount = actualAssembling.filter(g => {
-      // Already physically assembling — could enter queue any moment
-      if (g.assemblingAt) return true
-      // Pre-registered with scheduled time within next 30 minutes
-      if (g.scheduledTime) {
-        return new Date(g.scheduledTime).getTime() <= thirtyMinFromNow.getTime()
-      }
-      return false
+      // Quick Add / walk-up groups have no scheduled time — timing unknown, exclude
+      if (!g.scheduledTime) return false
+      // Only include pre-registered groups whose scheduled time falls
+      // between now and the projected tee time
+      const scheduled = new Date(g.scheduledTime).getTime()
+      return scheduled > now.getTime() && scheduled <= projectedTeeTime.getTime()
     }).length
     const spikeWaitMinutes = spikeGroupCount * 10
 
