@@ -65,6 +65,23 @@ export default function MemberQueue() {
         </div>
       )}
 
+      {/* Estimated Wait Banner */}
+      <div className="bg-gradient-to-r from-queue-green to-emerald-600 text-white px-4 py-3">
+        <div className="text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider opacity-90">Estimated Wait</div>
+          <div className="text-3xl font-bold mt-0.5">
+            {data.todayStats.spikeWaitMinutes > 0
+              ? `${data.todayStats.averageWaitMinutes}\u2013${data.todayStats.averageWaitMinutes + data.todayStats.spikeWaitMinutes} minutes`
+              : `${data.todayStats.averageWaitMinutes} minutes`}
+          </div>
+          {data.todayStats.spikeWaitMinutes > 0 && (
+            <div className="text-xs mt-1 opacity-80">
+              {data.todayStats.assemblingCount} group{data.todayStats.assemblingCount !== 1 ? 's' : ''} assembling may join the queue soon
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Stats Bar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-around text-center">
@@ -74,13 +91,13 @@ export default function MemberQueue() {
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div>
-            <div className="text-2xl font-bold text-gray-900">~{data.todayStats.averageWaitMinutes}m</div>
-            <div className="text-xs text-gray-500 font-medium">Est. Wait</div>
+            <div className="text-2xl font-bold text-gray-900">{data.todayStats.assemblingCount}</div>
+            <div className="text-xs text-gray-500 font-medium">Assembling</div>
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div>
-            <div className="text-2xl font-bold text-gray-900">{data.todayStats.assemblingCount}</div>
-            <div className="text-xs text-gray-500 font-medium">Assembling</div>
+            <div className="text-2xl font-bold text-gray-900">{data.todayStats.completedGroups}</div>
+            <div className="text-xs text-gray-500 font-medium">Served Today</div>
           </div>
         </div>
       </div>

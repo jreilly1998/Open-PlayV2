@@ -80,6 +80,20 @@ export async function GET() {
     // Estimate wait time: groups tee off every ~10 minutes
     const averageWaitMinutes = queued.length * 10
 
+    // Calculate spike time: assembling groups likely to enter queue within 30 minutes
+    const now = new Date()
+    const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000)
+    const spikeGroupCount = actualAssembling.filter(g => {
+      // Already physically assembling — could enter queue any moment
+      if (g.assemblingAt) return true
+      // Pre-registered with scheduled time within next 30 minutes
+      if (g.scheduledTime) {
+        return new Date(g.scheduledTime).getTime() <= thirtyMinFromNow.getTime()
+      }
+      return false
+    }).length
+    const spikeWaitMinutes = spikeGroupCount * 10
+
     return NextResponse.json({
       queued,
       assembling: actualAssembling,
@@ -88,6 +102,7 @@ export async function GET() {
         totalGroups: todayGroups.length,
         completedGroups: completedGroups.length,
         averageWaitMinutes,
+        spikeWaitMinutes,
         assemblingCount,
       },
     })
