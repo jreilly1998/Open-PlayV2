@@ -17,6 +17,7 @@ interface ToolbarProps {
   settings: QueueSettingsData
   totalGroups: number
   averageWaitMinutes: number
+  spikeWaitMinutes: number
   assemblingCount: number
   onRefetch: () => void
 }
@@ -25,6 +26,7 @@ export default function Toolbar({
   settings,
   totalGroups,
   averageWaitMinutes,
+  spikeWaitMinutes,
   assemblingCount,
   onRefetch,
 }: ToolbarProps) {
@@ -54,7 +56,9 @@ export default function Toolbar({
       <div className="flex items-center gap-8 text-sm text-gray-600">
         <span className="font-medium">{totalGroups} groups today</span>
         <span className="font-medium">
-          Current wait: ~{averageWaitMinutes} min
+          Est. wait: {spikeWaitMinutes > 0
+            ? `${averageWaitMinutes}\u2013${averageWaitMinutes + spikeWaitMinutes} min`
+            : `~${averageWaitMinutes} min`}
         </span>
         <span className="font-medium">{assemblingCount} assembling</span>
 

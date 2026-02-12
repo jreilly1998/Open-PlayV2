@@ -38,6 +38,7 @@ export interface DashboardData {
     totalGroups: number
     completedGroups: number
     averageWaitMinutes: number
+    spikeWaitMinutes: number
     assemblingCount: number
   }
 }

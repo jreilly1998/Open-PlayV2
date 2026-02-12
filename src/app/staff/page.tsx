@@ -29,6 +29,7 @@ export default function StaffDashboard() {
         settings={data.settings}
         totalGroups={data.todayStats.totalGroups}
         averageWaitMinutes={data.todayStats.averageWaitMinutes}
+        spikeWaitMinutes={data.todayStats.spikeWaitMinutes}
         assemblingCount={data.todayStats.assemblingCount}
         onRefetch={refetch}
       />
