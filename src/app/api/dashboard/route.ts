@@ -113,8 +113,11 @@ export async function GET() {
       const localTimeStr = g.scheduledTime.replace('Z', '')
       const scheduledUtc = fromZonedTime(localTimeStr, APP_TIMEZONE)
 
-      const inWindow = scheduledUtc.getTime() > now.getTime() && scheduledUtc.getTime() <= projectedTeeTime.getTime()
-      console.log(`[Spike Debug] Group "${g.name}": scheduledTime=${g.scheduledTime}, actualUTC=${scheduledUtc.toISOString()}, inWindow=${inWindow}`)
+      // Include group if projected tee time is at or after their scheduled time
+      // AND current time is still within 30 minutes of their scheduled time (grace period)
+      const cutoffTime = new Date(scheduledUtc.getTime() + 30 * 60 * 1000)
+      const inWindow = projectedTeeTime.getTime() >= scheduledUtc.getTime() && now.getTime() < cutoffTime.getTime()
+      console.log(`[Spike Debug] Group "${g.name}": scheduledTime=${g.scheduledTime}, actualUTC=${scheduledUtc.toISOString()}, cutoff=${cutoffTime.toISOString()}, inWindow=${inWindow}`)
       return inWindow
     }).length
     console.log('[Spike Debug] Spike group count:', spikeGroupCount)
