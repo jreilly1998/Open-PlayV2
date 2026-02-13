@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDb, ref, get, set } from '@/lib/firebase'
-import { getTodayDateStrInTz, getStartOfTodayISOInTz } from '@/lib/timezone'
+import { getTodayDateStrInTz, getStartOfTodayISOInTz, APP_TIMEZONE } from '@/lib/timezone'
+import { fromZonedTime } from 'date-fns-tz'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,15 +85,41 @@ export async function GET() {
     // enter the queue before your projected tee time
     const now = new Date()
     const projectedTeeTime = new Date(now.getTime() + averageWaitMinutes * 60 * 1000)
+
+    // Debug: log spike calculation inputs
+    console.log('[Spike Debug] Current time (UTC):', now.toISOString())
+    console.log('[Spike Debug] Current time (Pacific):', now.toLocaleString('en-US', { timeZone: APP_TIMEZONE }))
+    console.log('[Spike Debug] Queue length:', queued.length, '= base wait', averageWaitMinutes, 'min')
+    console.log('[Spike Debug] Projected tee time (UTC):', projectedTeeTime.toISOString())
+    console.log('[Spike Debug] Projected tee time (Pacific):', projectedTeeTime.toLocaleString('en-US', { timeZone: APP_TIMEZONE }))
+    console.log('[Spike Debug] All assembling groups:', actualAssembling.map(g => ({
+      name: g.name,
+      scheduledTime: g.scheduledTime,
+      isPreRegistered: g.isPreRegistered,
+      assemblingAt: g.assemblingAt,
+    })))
+    console.log('[Spike Debug] Groups with scheduledTime:', actualAssembling.filter(g => g.scheduledTime).map(g => ({
+      name: g.name,
+      scheduledTime: g.scheduledTime,
+    })))
+
     const spikeGroupCount = actualAssembling.filter(g => {
       // Quick Add / walk-up groups have no scheduled time — timing unknown, exclude
       if (!g.scheduledTime) return false
-      // Only include pre-registered groups whose scheduled time falls
-      // between now and the projected tee time
-      const scheduled = new Date(g.scheduledTime).getTime()
-      return scheduled > now.getTime() && scheduled <= projectedTeeTime.getTime()
+
+      // scheduledTime is stored as "YYYY-MM-DDTHH:MM:SS.000Z" but the time
+      // components actually represent Pacific time, not UTC.
+      // Strip the Z suffix and convert from Pacific to actual UTC for comparison.
+      const localTimeStr = g.scheduledTime.replace('Z', '')
+      const scheduledUtc = fromZonedTime(localTimeStr, APP_TIMEZONE)
+
+      const inWindow = scheduledUtc.getTime() > now.getTime() && scheduledUtc.getTime() <= projectedTeeTime.getTime()
+      console.log(`[Spike Debug] Group "${g.name}": scheduledTime=${g.scheduledTime}, actualUTC=${scheduledUtc.toISOString()}, inWindow=${inWindow}`)
+      return inWindow
     }).length
+    console.log('[Spike Debug] Spike group count:', spikeGroupCount)
     const spikeWaitMinutes = spikeGroupCount * 10
+    console.log(`[Spike Debug] Result: base=${averageWaitMinutes}, spike=${spikeWaitMinutes}, display=${spikeWaitMinutes > 0 ? `${averageWaitMinutes}-${averageWaitMinutes + spikeWaitMinutes}` : `${averageWaitMinutes}`} minutes`)
 
     return NextResponse.json({
       queued,
