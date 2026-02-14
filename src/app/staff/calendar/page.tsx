@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useCalendar, useCurrentTime } from '@/lib/hooks'
-import { createGroup } from '@/lib/api'
+import { createGroup, editGroup, removeGroup } from '@/lib/api'
 import { CalendarGroup } from '@/lib/types'
 
 function formatTimeSlot(time: string): string {
@@ -111,6 +111,17 @@ export default function StaffCalendar() {
   const [formMemberNames, setFormMemberNames] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // Edit/delete state for calendar groups
+  const [editingCalGroup, setEditingCalGroup] = useState<{ group: CalendarGroup; date: string; time: string } | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPartySize, setEditPartySize] = useState(4)
+  const [editMemberNames, setEditMemberNames] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleteDeleting, setDeleteDeleting] = useState(false)
+
   const handleSlotClick = (date: string, time: string) => {
     setSelectedSlot({ date, time })
     setShowAddForm(true)
@@ -139,6 +150,62 @@ export default function StaffCalendar() {
       console.error('Failed to add pre-registration:', err)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleStartEditCalGroup = (g: CalendarGroup, date: string, time: string) => {
+    setEditingCalGroup({ group: g, date, time })
+    setEditName(g.name)
+    setEditPartySize(g.partySize)
+    setEditMemberNames(g.members.map(m => m.name).join(', '))
+    setEditDate(date)
+    setEditTime(time)
+  }
+
+  const handleSaveCalGroupEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingCalGroup || !editName.trim()) return
+
+    setEditSaving(true)
+    try {
+      const data: Parameters<typeof editGroup>[1] = {
+        name: editName.trim(),
+        partySize: editPartySize,
+        memberNames: editMemberNames.trim() || undefined,
+      }
+      if (editDate && editTime) {
+        data.scheduledTime = `${editDate}T${editTime}:00.000Z`
+      }
+      await editGroup(editingCalGroup.group.id, data)
+      setEditingCalGroup(null)
+      setViewSlot(null)
+      refetch()
+    } catch (err) {
+      console.error('Failed to edit pre-registration:', err)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleDeleteCalGroup = async (groupId: string) => {
+    setDeleteDeleting(true)
+    try {
+      await removeGroup(groupId)
+      setDeleteConfirmId(null)
+      // Update viewSlot to remove the deleted group
+      if (viewSlot) {
+        const remaining = viewSlot.groups.filter(g => g.id !== groupId)
+        if (remaining.length === 0) {
+          setViewSlot(null)
+        } else {
+          setViewSlot({ ...viewSlot, groups: remaining })
+        }
+      }
+      refetch()
+    } catch (err) {
+      console.error('Failed to delete pre-registration:', err)
+    } finally {
+      setDeleteDeleting(false)
     }
   }
 
@@ -472,14 +539,38 @@ export default function StaffCalendar() {
             </div>
             <div className="p-5 space-y-2 overflow-y-auto flex-1">
               {viewSlot.groups.map(g => (
-                <div key={g.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div>
-                    <div className="font-semibold text-gray-900 text-base">{g.name}</div>
-                    <div className="text-sm text-gray-500">{g.partySize} player{g.partySize !== 1 ? 's' : ''}</div>
+                <div key={g.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-gray-900 text-base">{g.name}</div>
+                      <div className="text-sm text-gray-500">{g.partySize} player{g.partySize !== 1 ? 's' : ''}</div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleStartEditCalGroup(g, viewSlot.date, viewSlot.time)}
+                        className="p-1.5 rounded transition-colors text-gray-400 hover:text-queue-blue hover:bg-blue-50"
+                        title="Edit"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirmId(g.id)}
+                        className="p-1.5 rounded transition-colors text-gray-400 hover:text-queue-red hover:bg-red-50"
+                        title="Delete"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400 text-right max-w-[50%]">
-                    {g.members.map(m => m.name).join(', ')}
-                  </div>
+                  {g.members.length > 0 && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      {g.members.map(m => m.name).join(', ')}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -688,6 +779,147 @@ export default function StaffCalendar() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Pre-Registration Modal */}
+      {editingCalGroup && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-md sm:mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl sm:rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-900">Edit Pre-Registration</h3>
+                <button
+                  onClick={() => setEditingCalGroup(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleSaveCalGroupEdit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Group Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Party Size</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map(size => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setEditPartySize(size)}
+                      className={`py-3.5 rounded-xl font-bold text-lg transition-colors min-h-[48px] ${
+                        editPartySize === size
+                          ? 'bg-queue-blue text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Member Names <span className="text-gray-400 font-normal">(comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editMemberNames}
+                  onChange={e => setEditMemberNames(e.target.value)}
+                  placeholder="Separate with commas"
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={e => setEditDate(e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Time</label>
+                  <input
+                    type="time"
+                    value={editTime}
+                    onChange={e => setEditTime(e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCalGroup(null)}
+                  className="flex-1 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors min-h-[48px] text-base"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!editName.trim() || editSaving}
+                  className="flex-1 py-3 bg-queue-blue hover:bg-blue-700 text-white font-bold rounded-xl transition-colors min-h-[48px] disabled:opacity-50 text-base"
+                >
+                  {editSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Pre-Registration Confirmation */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-sm sm:mx-4">
+            <div className="p-5 text-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-queue-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                Delete pre-registration?
+              </h3>
+              <p className="text-sm text-gray-500">
+                This cannot be undone.
+              </p>
+            </div>
+            <div className="p-5 pt-0 flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={deleteDeleting}
+                className="flex-1 py-3 border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors min-h-[48px] text-base disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteCalGroup(deleteConfirmId)}
+                disabled={deleteDeleting}
+                className="flex-1 py-3 bg-queue-red hover:bg-red-700 text-white font-bold rounded-xl transition-colors min-h-[48px] text-base disabled:opacity-50"
+              >
+                {deleteDeleting ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
           </div>
         </div>
       )}
