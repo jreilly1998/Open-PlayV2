@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   DndContext,
   closestCenter,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -11,6 +12,7 @@ import {
   DragStartEvent,
   DragEndEvent,
   DragOverlay,
+  CollisionDetection,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -19,7 +21,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { GroupData } from '@/lib/types'
-import { reorderGroups } from '@/lib/api'
+import { reorderGroups, pairGroups } from '@/lib/api'
 import QueueCard from './QueueCard'
 
 interface ActiveQueueProps {
@@ -32,6 +34,7 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
   const [localGroups, setLocalGroups] = useState(groups)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [isReordering, setIsReordering] = useState(false)
+  const [isPairing, setIsPairing] = useState(false)
   const isReorderingRef = useRef(false)
 
   // Sync local state with server data, but not while a reorder is in flight
@@ -50,14 +53,62 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
     })
   )
 
+  // Custom collision detection: prioritize pair drop zones over sortable items
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    // First check if we're over any pair drop zone
+    const pairContainers = args.droppableContainers.filter(
+      container => String(container.id).startsWith('pair-')
+    )
+    if (pairContainers.length > 0) {
+      const pairCollisions = rectIntersection({
+        ...args,
+        droppableContainers: pairContainers,
+      })
+      if (pairCollisions.length > 0) {
+        return pairCollisions
+      }
+    }
+
+    // Fall back to closestCenter for sortable reordering
+    return closestCenter(args)
+  }, [])
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id))
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    setActiveId(null)
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    setActiveId(null)
+
+    if (!over) return
+
+    const overId = String(over.id)
+
+    // Check if dropped on a pair zone
+    if (overId.startsWith('pair-')) {
+      const targetGroupId = overId.replace('pair-', '')
+      const draggedGroup = localGroups.find(g => g.id === active.id)
+      const targetGroup = localGroups.find(g => g.id === targetGroupId)
+
+      if (!draggedGroup || !targetGroup) return
+      if (draggedGroup.partySize + targetGroup.partySize > 4) return
+
+      // Perform pairing — target is primary (keeps position), dragged is secondary
+      setIsPairing(true)
+      try {
+        await pairGroups(targetGroup.id, draggedGroup.id)
+        onRefetch()
+      } catch (err) {
+        console.error('Pairing failed:', err)
+      } finally {
+        setIsPairing(false)
+      }
+      return
+    }
+
+    // Standard reorder logic
+    if (active.id === over.id) return
 
     const oldIndex = localGroups.findIndex(g => g.id === active.id)
     const newIndex = localGroups.findIndex(g => g.id === over.id)
@@ -100,11 +151,18 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
               {localGroups.length} group{localGroups.length !== 1 ? 's' : ''}
             </p>
           </div>
-          {isReordering && (
-            <span className="text-green-100 text-xs font-medium animate-pulse">
-              Saving...
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {activeGroup && (
+              <span className="text-green-100 text-xs font-medium">
+                Drag onto a group to pair, or between groups to reorder
+              </span>
+            )}
+            {(isReordering || isPairing) && (
+              <span className="text-green-100 text-xs font-medium animate-pulse">
+                {isPairing ? 'Pairing...' : 'Saving...'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -130,7 +188,7 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
@@ -145,6 +203,7 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
                   group={group}
                   index={index}
                   onRefetch={onRefetch}
+                  draggedGroup={activeGroup || null}
                 />
               ))}
             </SortableContext>

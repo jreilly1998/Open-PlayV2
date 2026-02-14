@@ -1,4 +1,4 @@
-export type GroupStatus = 'assembling' | 'queued' | 'playing' | 'completed' | 'cancelled'
+export type GroupStatus = 'assembling' | 'queued' | 'playing' | 'completed' | 'cancelled' | 'paired'
 
 export interface MemberData {
   id: string
@@ -21,6 +21,13 @@ export interface GroupData {
   createdAt: string
   updatedAt: string
   members: MemberData[]
+  // Pairing fields — primary group (stays in queue)
+  pairedWithGroupId?: string | null
+  pairedGroupName?: string | null
+  pairedGroupSize?: number | null
+  originalPartySize?: number | null
+  // Pairing fields — secondary group (hidden from queue, status='paired')
+  pairedIntoGroupId?: string | null
 }
 
 export interface QueueSettingsData {

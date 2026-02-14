@@ -60,6 +60,32 @@ export async function reorderGroups(orderedIds: string[]) {
   return res.json()
 }
 
+export async function pairGroups(primaryGroupId: string, secondaryGroupId: string) {
+  const res = await fetch('/api/groups/pair', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ primaryGroupId, secondaryGroupId }),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Failed to pair groups')
+  }
+  return res.json()
+}
+
+export async function unpairGroup(groupId: string) {
+  const res = await fetch('/api/groups/unpair', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupId }),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Failed to unpair group')
+  }
+  return res.json()
+}
+
 export async function updateSettings(data: {
   isPaused?: boolean
   pauseReason?: string | null
