@@ -34,13 +34,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (primary.pairedWithGroupId || secondary.pairedWithGroupId || secondary.pairedIntoGroupId) {
+    // Secondary must not already be paired (either as primary or secondary)
+    if (secondary.pairedWithGroupId || secondary.pairedIntoGroupId) {
       return NextResponse.json(
-        { error: 'One or both groups are already paired' },
+        { error: 'The dragged group is already paired' },
         { status: 400 }
       )
     }
 
+    // Use originalPartySize if primary is already paired, otherwise current partySize
+    const primaryOriginalSize = primary.originalPartySize || primary.partySize
     const combinedSize = primary.partySize + secondary.partySize
     if (combinedSize > 4) {
       return NextResponse.json(
@@ -51,14 +54,29 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString()
 
+    // Accumulate paired group info (supports adding multiple secondaries)
+    const existingPairedIds = primary.pairedWithGroupId ? String(primary.pairedWithGroupId).split(',') : []
+    const existingPairedNames = primary.pairedGroupName ? String(primary.pairedGroupName).split(' + ') : []
+    const existingPairedSize = primary.pairedGroupSize || 0
+
+    const newPairedIds = [...existingPairedIds, secondaryGroupId].join(',')
+    const newPairedNames = [...existingPairedNames, secondary.name].join(' + ')
+    const newPairedSize = existingPairedSize + secondary.partySize
+
+    console.log('[Pair] Pairing groups:', {
+      primary: { id: primaryGroupId, name: primary.name, partySize: primary.partySize, originalPartySize: primaryOriginalSize, alreadyPaired: !!primary.pairedWithGroupId },
+      secondary: { id: secondaryGroupId, name: secondary.name, partySize: secondary.partySize },
+      result: { pairedIds: newPairedIds, pairedNames: newPairedNames, pairedSize: newPairedSize, combinedSize },
+    })
+
     // Build atomic update:
-    // - Primary group: store pairing info, update partySize to combined total
+    // - Primary group: store/accumulate pairing info, update partySize to combined total
     // - Secondary group: set status to 'paired', store reference to primary
     const updates: Record<string, unknown> = {
-      [`groups/${primaryGroupId}/pairedWithGroupId`]: secondaryGroupId,
-      [`groups/${primaryGroupId}/pairedGroupName`]: secondary.name,
-      [`groups/${primaryGroupId}/pairedGroupSize`]: secondary.partySize,
-      [`groups/${primaryGroupId}/originalPartySize`]: primary.partySize,
+      [`groups/${primaryGroupId}/pairedWithGroupId`]: newPairedIds,
+      [`groups/${primaryGroupId}/pairedGroupName`]: newPairedNames,
+      [`groups/${primaryGroupId}/pairedGroupSize`]: newPairedSize,
+      [`groups/${primaryGroupId}/originalPartySize`]: primaryOriginalSize,
       [`groups/${primaryGroupId}/partySize`]: combinedSize,
       [`groups/${primaryGroupId}/updatedAt`]: now,
 

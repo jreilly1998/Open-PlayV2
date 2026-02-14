@@ -74,16 +74,28 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
   }, [])
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id))
+    const dragId = String(event.active.id)
+    const dragGroup = localGroups.find(g => g.id === dragId)
+    console.log('[DragDrop] Drag started:', {
+      groupId: dragId,
+      name: dragGroup?.name,
+      partySize: dragGroup?.partySize,
+      isPaired: !!dragGroup?.pairedWithGroupId,
+    })
+    setActiveId(dragId)
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
 
-    if (!over) return
+    if (!over) {
+      console.log('[DragDrop] Drag cancelled — no drop target')
+      return
+    }
 
     const overId = String(over.id)
+    console.log('[DragDrop] Dropped on:', overId)
 
     // Check if dropped on a pair zone
     if (overId.startsWith('pair-')) {
@@ -91,16 +103,30 @@ export default function ActiveQueue({ groups, isPaused, onRefetch }: ActiveQueue
       const draggedGroup = localGroups.find(g => g.id === active.id)
       const targetGroup = localGroups.find(g => g.id === targetGroupId)
 
-      if (!draggedGroup || !targetGroup) return
-      if (draggedGroup.partySize + targetGroup.partySize > 4) return
+      console.log('[DragDrop] Pair attempt:', {
+        dragged: draggedGroup ? { id: draggedGroup.id, name: draggedGroup.name, partySize: draggedGroup.partySize, isPaired: !!draggedGroup.pairedWithGroupId } : null,
+        target: targetGroup ? { id: targetGroup.id, name: targetGroup.name, partySize: targetGroup.partySize, isPaired: !!targetGroup.pairedWithGroupId } : null,
+        combinedSize: (draggedGroup?.partySize || 0) + (targetGroup?.partySize || 0),
+      })
+
+      if (!draggedGroup || !targetGroup) {
+        console.warn('[DragDrop] Pair aborted — group not found')
+        return
+      }
+      if (draggedGroup.partySize + targetGroup.partySize > 4) {
+        console.warn('[DragDrop] Pair aborted — would exceed 4 players:', draggedGroup.partySize, '+', targetGroup.partySize)
+        return
+      }
 
       // Perform pairing — target is primary (keeps position), dragged is secondary
       setIsPairing(true)
       try {
+        console.log('[DragDrop] Calling pairGroups API:', { primaryId: targetGroup.id, secondaryId: draggedGroup.id })
         await pairGroups(targetGroup.id, draggedGroup.id)
+        console.log('[DragDrop] Pair succeeded!')
         onRefetch()
       } catch (err) {
-        console.error('Pairing failed:', err)
+        console.error('[DragDrop] Pairing failed:', err)
       } finally {
         setIsPairing(false)
       }

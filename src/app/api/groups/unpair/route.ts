@@ -21,12 +21,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Group is not paired' }, { status: 400 })
     }
 
-    const secondaryId = group.pairedWithGroupId
-    const secondarySnap = await get(ref(db, `groups/${secondaryId}`))
-    const secondary = secondarySnap.val()
+    // Support multiple secondaries (comma-separated IDs)
+    const secondaryIds = String(group.pairedWithGroupId).split(',').map((id: string) => id.trim()).filter(Boolean)
 
-    if (!secondary) {
-      return NextResponse.json({ error: 'Paired group not found' }, { status: 404 })
+    console.log('[Unpair] Starting unpair:', {
+      primaryId: groupId,
+      primaryName: group.name,
+      primaryPartySize: group.partySize,
+      originalPartySize: group.originalPartySize,
+      secondaryIds,
+    })
+
+    // Verify all secondary groups exist
+    const secondarySnaps = await Promise.all(
+      secondaryIds.map(id => get(ref(db, `groups/${id}`)))
+    )
+    const secondaries = secondarySnaps.map((snap: { val: () => unknown }) => snap.val())
+
+    const missingIndex = secondaries.findIndex((s: unknown) => !s)
+    if (missingIndex !== -1) {
+      console.error('[Unpair] Secondary group not found:', secondaryIds[missingIndex])
+      return NextResponse.json({ error: `Paired group not found: ${secondaryIds[missingIndex]}` }, { status: 404 })
     }
 
     const now = new Date().toISOString()
@@ -39,7 +54,7 @@ export async function POST(request: NextRequest) {
       if (g.position > maxPosition) maxPosition = g.position
     })
 
-    // Unpair: restore primary, put secondary back in queue at end
+    // Unpair: restore primary, put all secondaries back in queue at end
     const updates: Record<string, unknown> = {
       [`groups/${groupId}/pairedWithGroupId`]: null,
       [`groups/${groupId}/pairedGroupName`]: null,
@@ -47,16 +62,25 @@ export async function POST(request: NextRequest) {
       [`groups/${groupId}/partySize`]: group.originalPartySize || group.partySize,
       [`groups/${groupId}/originalPartySize`]: null,
       [`groups/${groupId}/updatedAt`]: now,
-
-      [`groups/${secondaryId}/pairedIntoGroupId`]: null,
-      [`groups/${secondaryId}/status`]: 'queued',
-      [`groups/${secondaryId}/position`]: maxPosition + 1,
-      [`groups/${secondaryId}/updatedAt`]: now,
     }
+
+    // Restore each secondary group to queued status
+    secondaryIds.forEach((secId, i) => {
+      updates[`groups/${secId}/pairedIntoGroupId`] = null
+      updates[`groups/${secId}/status`] = 'queued'
+      updates[`groups/${secId}/position`] = maxPosition + 1 + i
+      updates[`groups/${secId}/updatedAt`] = now
+    })
+
+    console.log('[Unpair] Applying updates:', {
+      restoredPrimarySize: group.originalPartySize || group.partySize,
+      secondariesRestored: secondaryIds.length,
+      updates: Object.keys(updates),
+    })
 
     await update(ref(db), updates)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, secondariesRestored: secondaryIds.length })
   } catch (error) {
     console.error('Unpair error:', error)
     return NextResponse.json({ error: 'Failed to unpair groups' }, { status: 500 })

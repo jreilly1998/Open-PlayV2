@@ -18,7 +18,7 @@ function formatTime(dateStr: string | null): string {
 
 function getWidthClass(partySize: number): string {
   switch (partySize) {
-    case 1: return 'w-1/4'
+    case 1: return 'w-2/5 min-w-[200px]'
     case 2: return 'w-1/2'
     case 3: return 'w-3/4'
     default: return 'w-full'
@@ -97,11 +97,22 @@ export default function QueueCard({
   }
 
   const handleUnpair = async () => {
+    console.log('[Unpair] Unpairing group:', {
+      id: group.id,
+      name: group.name,
+      partySize: group.partySize,
+      originalPartySize: group.originalPartySize,
+      pairedWithGroupId: group.pairedWithGroupId,
+      pairedGroupName: group.pairedGroupName,
+      pairedGroupSize: group.pairedGroupSize,
+    })
     setUnpairing(true)
     try {
       await unpairGroup(group.id)
+      console.log('[Unpair] Unpair succeeded for group:', group.id)
       onRefetch()
-    } catch {
+    } catch (err) {
+      console.error('[Unpair] Unpair failed:', err)
       setUnpairing(false)
     }
   }
@@ -123,13 +134,14 @@ export default function QueueCard({
 
   // Compute pair drop validity for visual feedback
   const wouldExceed = draggedGroup ? effectivePartySize + draggedGroup.partySize > 4 : false
+  const draggedIsAlreadyPaired = !!draggedGroup?.pairedWithGroupId
   const showPairZone = !!draggedGroup && draggedGroup.id !== group.id && !isDragging
-  const pairZoneValid = showPairZone && !wouldExceed && effectivePartySize < 4
-  const pairZoneInvalid = showPairZone && (wouldExceed || effectivePartySize >= 4)
+  const pairZoneValid = showPairZone && !wouldExceed && effectivePartySize < 4 && !draggedIsAlreadyPaired
+  const pairZoneInvalid = showPairZone && (wouldExceed || effectivePartySize >= 4 || draggedIsAlreadyPaired)
 
-  // Combined name display
+  // Combined name display (pairedGroupName may contain " + " for multiple secondaries)
   const displayName = isPaired
-    ? `${group.name} + ${group.pairedGroupName} (${getPartySizeLabel(group.pairedGroupSize || 0).toLowerCase()})`
+    ? `${group.name} + ${group.pairedGroupName}`
     : group.name
 
   return (
@@ -161,24 +173,24 @@ export default function QueueCard({
 
           <div className="flex-1 min-w-0">
             {/* Top row: position, name, badge */}
-            <div className="flex items-center justify-between mb-1 gap-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-3xl font-black text-gray-800 flex-shrink-0">#{group.position}</span>
-                <h3 className="text-lg font-bold text-gray-900 truncate">{displayName}</h3>
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-2xl sm:text-3xl font-black text-gray-800 flex-shrink-0">#{group.position}</span>
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate">{displayName}</h3>
               </div>
               <div className="flex-shrink-0">
                 {isOnTheTee && (
-                  <span className="px-3 py-1 bg-queue-green text-white text-xs font-bold rounded-md tracking-wide">
+                  <span className="px-2 sm:px-3 py-1 bg-queue-green text-white text-xs font-bold rounded-md tracking-wide whitespace-nowrap">
                     ON THE TEE
                   </span>
                 )}
                 {isOnDeck && (
-                  <span className="px-3 py-1 bg-queue-amber text-white text-xs font-bold rounded-md tracking-wide">
+                  <span className="px-2 sm:px-3 py-1 bg-queue-amber text-white text-xs font-bold rounded-md tracking-wide whitespace-nowrap">
                     ON DECK
                   </span>
                 )}
                 {isInTheHole && (
-                  <span className="px-3 py-1 bg-gray-500 text-white text-xs font-bold rounded-wide">
+                  <span className="px-2 sm:px-3 py-1 bg-gray-500 text-white text-xs font-bold rounded-md tracking-wide whitespace-nowrap">
                     IN THE HOLE
                   </span>
                 )}
@@ -263,7 +275,7 @@ export default function QueueCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
               <span className="text-xs font-medium text-red-400">
-                {effectivePartySize >= 4 ? 'Full' : "Can't pair — exceeds 4"}
+                {effectivePartySize >= 4 ? 'Full' : draggedIsAlreadyPaired ? 'Already paired' : "Can't pair — exceeds 4"}
               </span>
             </>
           )}
