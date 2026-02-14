@@ -5,7 +5,9 @@ import { useSortable } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { GroupData } from '@/lib/types'
-import { teeOff, unpairGroup } from '@/lib/api'
+import { teeOff, unpairGroup, removeGroup } from '@/lib/api'
+import EditGroupModal from './EditGroupModal'
+import DeleteConfirmModal from './DeleteConfirmModal'
 
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -55,6 +57,8 @@ export default function QueueCard({
 }: QueueCardProps) {
   const [teeingOff, setTeeingOff] = useState(false)
   const [unpairing, setUnpairing] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const {
     attributes,
@@ -229,6 +233,28 @@ export default function QueueCard({
               <span>Entered: {formatTime(group.enteredQueueAt)}</span>
             </div>
 
+            {/* Edit / Delete row */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => setShowEdit(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:text-queue-blue hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-400 hover:text-queue-red hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Remove
+              </button>
+            </div>
+
             {/* Tee Off button */}
             <button
               onClick={handleTeeOff}
@@ -240,6 +266,27 @@ export default function QueueCard({
           </div>
         </div>
       </div>
+
+      {/* Edit / Delete modals */}
+      {showEdit && (
+        <EditGroupModal
+          group={group}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => { setShowEdit(false); onRefetch() }}
+        />
+      )}
+      {showDeleteConfirm && (
+        <DeleteConfirmModal
+          groupName={group.name}
+          message={`Remove ${group.name} from queue?`}
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={async () => {
+            await removeGroup(group.id)
+            setShowDeleteConfirm(false)
+            onRefetch()
+          }}
+        />
+      )}
 
       {/* Pair drop zone — visible when dragging a compatible group */}
       {showPairZone && effectivePartySize < 4 && (

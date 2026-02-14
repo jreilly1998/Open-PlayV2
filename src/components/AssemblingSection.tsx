@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { GroupData } from '@/lib/types'
 import { toggleMember, moveToQueue, removeGroup } from '@/lib/api'
+import EditGroupModal from './EditGroupModal'
+import DeleteConfirmModal from './DeleteConfirmModal'
 
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -30,8 +32,9 @@ interface AssemblingSectionProps {
 
 export default function AssemblingSection({ groups, onRefetch }: AssemblingSectionProps) {
   const [expanded, setExpanded] = useState(true)
-  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const [loading, setLoading] = useState<Record<string, boolean>>({})
+  const [editingGroup, setEditingGroup] = useState<GroupData | null>(null)
+  const [deletingGroup, setDeletingGroup] = useState<GroupData | null>(null)
 
   const handleToggleMember = async (memberId: string) => {
     setLoading(prev => ({ ...prev, [memberId]: true }))
@@ -51,17 +54,6 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
     } finally {
       setLoading(prev => ({ ...prev, [groupId]: false }))
     }
-  }
-
-  const handleRemove = async (groupId: string) => {
-    if (confirmRemove !== groupId) {
-      setConfirmRemove(groupId)
-      setTimeout(() => setConfirmRemove(null), 3000)
-      return
-    }
-    await removeGroup(groupId)
-    setConfirmRemove(null)
-    onRefetch()
   }
 
   // Sort: groups closest to complete first
@@ -146,19 +138,26 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
                               : ''}
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleRemove(group.id)}
-                        className={`p-1 rounded transition-colors ${
-                          confirmRemove === group.id
-                            ? 'text-red-600 bg-red-50'
-                            : 'text-gray-300 hover:text-gray-500'
-                        }`}
-                        title={confirmRemove === group.id ? 'Click again to confirm' : 'Remove group'}
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEditingGroup(group)}
+                          className="p-1.5 rounded transition-colors text-gray-300 hover:text-queue-blue hover:bg-blue-50"
+                          title="Edit group"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setDeletingGroup(group)}
+                          className="p-1.5 rounded transition-colors text-gray-300 hover:text-queue-red hover:bg-red-50"
+                          title="Remove group"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Member list */}
@@ -213,6 +212,28 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
             </div>
           )}
         </div>
+      )}
+
+      {/* Edit / Delete modals */}
+      {editingGroup && (
+        <EditGroupModal
+          group={editingGroup}
+          showScheduledTime={!!editingGroup.scheduledTime}
+          onClose={() => setEditingGroup(null)}
+          onSaved={() => { setEditingGroup(null); onRefetch() }}
+        />
+      )}
+      {deletingGroup && (
+        <DeleteConfirmModal
+          groupName={deletingGroup.name}
+          message={`Remove ${deletingGroup.name}?`}
+          onCancel={() => setDeletingGroup(null)}
+          onConfirm={async () => {
+            await removeGroup(deletingGroup.id)
+            setDeletingGroup(null)
+            onRefetch()
+          }}
+        />
       )}
     </div>
   )

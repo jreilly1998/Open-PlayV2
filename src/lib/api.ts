@@ -44,6 +44,24 @@ export async function toggleMember(memberId: string) {
   return res.json()
 }
 
+export async function editGroup(groupId: string, data: {
+  name?: string
+  partySize?: number
+  memberNames?: string
+  scheduledTime?: string | null
+}) {
+  const res = await fetch(`/api/groups/${groupId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Failed to edit group')
+  }
+  return res.json()
+}
+
 export async function removeGroup(groupId: string) {
   const res = await fetch(`/api/groups/${groupId}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Failed to remove group')
