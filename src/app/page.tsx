@@ -121,50 +121,64 @@ export default function MemberQueue() {
               {data.queued.map((group, idx) => {
                 const label = idx === 0 ? 'ON THE TEE' : idx === 1 ? 'ON DECK' : idx === 2 ? 'IN THE HOLE' : null
                 const labelColor = idx === 0 ? 'bg-queue-green' : idx === 1 ? 'bg-queue-amber' : 'bg-gray-500'
+                const isPaired = !!group.pairedWithGroupId
+                const displayName = isPaired
+                  ? `${group.name} + ${group.pairedGroupName}`
+                  : group.name
+                const widthClass = group.partySize === 1 ? 'w-1/4' : group.partySize === 2 ? 'w-1/2' : group.partySize === 3 ? 'w-3/4' : 'w-full'
                 return (
-                  <div
-                    key={group.id}
-                    className={`bg-white rounded-xl border p-4 fade-in ${
-                      idx === 0
-                        ? 'border-queue-green shadow-sm ring-1 ring-queue-green/20'
-                        : idx === 1
-                        ? 'border-amber-300 shadow-sm'
-                        : idx === 2
-                        ? 'border-gray-300 shadow-sm'
-                        : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                          idx === 0
-                            ? 'bg-queue-green text-white'
-                            : idx === 1
-                            ? 'bg-queue-amber text-white'
-                            : idx === 2
-                            ? 'bg-gray-400 text-white'
-                            : 'bg-gray-200 text-gray-600'
-                        }`}>
-                          {group.position}
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-900">{group.name}</h3>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {Array.from({ length: group.partySize }).map((_, i) => (
-                              <svg key={i} className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-                              </svg>
-                            ))}
-                            <span className="text-xs text-gray-500 ml-1">{group.partySize} players</span>
+                  <div key={group.id} className="flex">
+                    <div
+                      className={`${widthClass} bg-white rounded-xl border p-4 fade-in transition-all duration-200 ${
+                        idx === 0
+                          ? 'border-queue-green shadow-sm ring-1 ring-queue-green/20'
+                          : idx === 1
+                          ? 'border-amber-300 shadow-sm'
+                          : idx === 2
+                          ? 'border-gray-300 shadow-sm'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${
+                            idx === 0
+                              ? 'bg-queue-green text-white'
+                              : idx === 1
+                              ? 'bg-queue-amber text-white'
+                              : idx === 2
+                              ? 'bg-gray-400 text-white'
+                              : 'bg-gray-200 text-gray-600'
+                          }`}>
+                            {group.position}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-gray-900 truncate">{displayName}</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {Array.from({ length: group.partySize }).map((_, i) => {
+                                const isFromPaired = isPaired && group.originalPartySize && i >= group.originalPartySize
+                                return (
+                                  <svg key={i} className={`w-4 h-4 ${isFromPaired ? 'text-queue-blue' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                                  </svg>
+                                )
+                              })}
+                              <span className="text-xs text-gray-500 ml-1">{group.partySize} players</span>
+                            </div>
+                            {isPaired && (
+                              <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-blue-50 text-queue-blue text-[10px] font-semibold rounded-full border border-blue-200">
+                                Paired: {group.originalPartySize} + {group.pairedGroupSize}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </div>
 
-                      {label && (
-                        <span className={`px-3 py-1.5 ${labelColor} text-white text-xs font-bold rounded-full ${idx === 0 ? 'on-deck-pulse' : ''}`}>
-                          {label}
-                        </span>
-                      )}
+                        {label && (
+                          <span className={`px-3 py-1.5 ${labelColor} text-white text-xs font-bold rounded-full flex-shrink-0 ${idx === 0 ? 'on-deck-pulse' : ''}`}>
+                            {label}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )

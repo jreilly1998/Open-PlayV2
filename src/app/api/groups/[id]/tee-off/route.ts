@@ -15,11 +15,20 @@ export async function POST(
     }
 
     const now = new Date().toISOString()
-    await update(ref(db, `groups/${params.id}`), {
-      status: 'completed',
-      teedOffAt: now,
-      updatedAt: now,
-    })
+    const teeOffUpdates: Record<string, unknown> = {
+      [`groups/${params.id}/status`]: 'completed',
+      [`groups/${params.id}/teedOffAt`]: now,
+      [`groups/${params.id}/updatedAt`]: now,
+    }
+
+    // If this group has a paired secondary group, mark it completed too
+    if (group.pairedWithGroupId) {
+      teeOffUpdates[`groups/${group.pairedWithGroupId}/status`] = 'completed'
+      teeOffUpdates[`groups/${group.pairedWithGroupId}/teedOffAt`] = now
+      teeOffUpdates[`groups/${group.pairedWithGroupId}/updatedAt`] = now
+    }
+
+    await update(ref(db), teeOffUpdates)
 
     // Re-number remaining positions
     const queuedSnap = await get(query(ref(db, 'groups'), orderByChild('status'), equalTo('queued')))
