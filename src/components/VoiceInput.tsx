@@ -5,6 +5,65 @@ import { GroupData } from '@/lib/types'
 import { createGroup, checkInGroup, teeOff, moveToQueue } from '@/lib/api'
 
 // ---------------------------------------------------------------------------
+// SpeechRecognition global declarations
+// ---------------------------------------------------------------------------
+
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+declare var SpeechRecognition: {
+  prototype: SpeechRecognition;
+  new(): SpeechRecognition;
+};
+
+declare var webkitSpeechRecognition: {
+  prototype: SpeechRecognition;
+  new(): SpeechRecognition;
+};
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -241,8 +300,7 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
   // Check browser support on mount (client-side only)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
     if (!SR) setVoiceState('unsupported')
   }, [])
 
@@ -254,14 +312,13 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
   }, [])
 
   const startListening = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
-    if (!SR) {
+    const SpeechRecognitionAPI = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) {
       setVoiceState('unsupported')
       return
     }
 
-    const recognition: SpeechRecognition = new SR()
+    const recognition: SpeechRecognition = new SpeechRecognitionAPI()
     recognitionRef.current = recognition
     recognition.continuous = false
     recognition.interimResults = true
