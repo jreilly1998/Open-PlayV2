@@ -238,7 +238,7 @@ export default function StaffCalendar() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="h-screen flex flex-col bg-gray-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-20">
         <div className="flex items-center gap-3 lg:gap-6">
@@ -248,8 +248,8 @@ export default function StaffCalendar() {
         <h2 className="text-sm lg:text-lg font-bold text-gray-800 hidden sm:block">Pre-Registration Calendar</h2>
       </header>
 
-      {/* Staff Navigation */}
-      <nav className="bg-white border-b border-gray-200 px-4 lg:px-6 py-2 flex items-center gap-4">
+      {/* Desktop-only Staff Navigation */}
+      <nav className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-2 items-center gap-4">
         <Link
           href="/staff"
           className="text-sm font-medium text-gray-500 hover:text-gray-800 pb-1 transition-colors"
@@ -261,10 +261,56 @@ export default function StaffCalendar() {
         </span>
       </nav>
 
+      {/* Mobile Tab Bar — Calendar tab active */}
+      <div className="lg:hidden bg-white border-b border-gray-200 flex shrink-0 shadow-sm">
+
+        {/* Tab 1: Queue */}
+        <Link
+          href="/staff"
+          className="flex-1 flex flex-col items-center pt-2.5 pb-1.5 px-1 gap-0.5 text-gray-400 relative transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          <span className="text-[11px] font-semibold tracking-tight">Queue</span>
+        </Link>
+
+        {/* Tab 2: Assembling */}
+        <Link
+          href="/staff"
+          className="flex-1 flex flex-col items-center pt-2.5 pb-1.5 px-1 gap-0.5 text-gray-400 relative transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span className="text-[11px] font-semibold tracking-tight">Assembling</span>
+        </Link>
+
+        {/* Tab 3: Add Group */}
+        <Link
+          href="/staff"
+          className="flex-1 flex flex-col items-center pt-2.5 pb-1.5 px-1 gap-0.5 text-gray-400 relative transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="text-[11px] font-semibold tracking-tight">Add Group</span>
+        </Link>
+
+        {/* Tab 4: Calendar (active) */}
+        <div className="flex-1 flex flex-col items-center pt-2.5 pb-1.5 px-1 gap-0.5 text-queue-green relative">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="text-[11px] font-semibold tracking-tight">Calendar</span>
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-queue-green" />
+        </div>
+      </div>
+
       {/* ============================================ */}
       {/* MOBILE LAYOUT (< lg) */}
       {/* ============================================ */}
-      <div className="lg:hidden flex flex-col flex-1">
+      <div className="lg:hidden flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Day Selector - horizontal scrollable */}
         <div className="bg-white border-b border-gray-200">
           <div className="flex overflow-x-auto py-2 px-2 gap-1 no-scrollbar">
