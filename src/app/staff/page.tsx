@@ -8,6 +8,7 @@ import StatusBar from '@/components/StatusBar'
 import ActiveQueue from '@/components/ActiveQueue'
 import AssemblingSection from '@/components/AssemblingSection'
 import QuickAdd from '@/components/QuickAdd'
+import VoiceInput from '@/components/VoiceInput'
 
 type MobileTab = 'queue' | 'assembling' | 'add'
 
@@ -205,6 +206,12 @@ export default function StaffDashboard() {
           <QuickAdd onRefetch={refetch} />
         </div>
       </main>
+
+      {/* Floating Voice Input Button */}
+      <VoiceInput
+        groups={[...data.queued, ...data.assembling]}
+        onRefetch={refetch}
+      />
 
       {/* Bottom Status Bar */}
       <StatusBar
