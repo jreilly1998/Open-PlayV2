@@ -96,10 +96,74 @@ const SIZE_WORDS: Record<string, number> = {
   two: 2, twosome: 2, '2': 2,
   three: 3, threesome: 3, '3': 3,
   four: 4, foursome: 4, '4': 4,
+  // Common homophones / speech-recognition mishearings
+  'for': 4,
 }
 
 function parseSizeWord(word: string): number | null {
   return SIZE_WORDS[word.toLowerCase()] ?? null
+}
+
+/** Map a digit or word to its "-some" form for normalization use. */
+function normalizeSizeToWord(s: string): string {
+  const map: Record<string, string> = {
+    '1': 'single', 'one': 'single',
+    '2': 'twosome', 'two': 'twosome',
+    '3': 'threesome', 'three': 'threesome',
+    '4': 'foursome', 'four': 'foursome',
+  }
+  return map[s] ?? s
+}
+
+/**
+ * Normalize a raw voice transcript so the parser can handle common
+ * speech-recognition variations and casual phrasing.
+ *
+ * Examples:
+ *   "Add Ryan 4some to queue"   → "add ryan foursome to queue"
+ *   "add Smith three some"      → "add smith threesome"
+ *   "check in Garcia"           → "check in garcia"      (unchanged – already valid)
+ *   "Teed off Johnson"          → "tee off johnson"
+ *   "add ryan party of 4"       → "add ryan foursome"
+ *   "add ryan 4 players"        → "add ryan foursome"
+ */
+function normalizeTranscript(raw: string): string {
+  let text = raw.toLowerCase().trim()
+
+  // "4some" / "3some" / "2some" → spelled-out word (before digit→word replacement)
+  text = text.replace(/\b4some\b/g, 'foursome')
+  text = text.replace(/\b3some\b/g, 'threesome')
+  text = text.replace(/\b2some\b/g, 'twosome')
+
+  // Standalone digits → words
+  text = text.replace(/\b4\b/g, 'four')
+  text = text.replace(/\b3\b/g, 'three')
+  text = text.replace(/\b2\b/g, 'two')
+  text = text.replace(/\b1\b/g, 'one')
+
+  // "four some" / "three some" / "two some" → compound word
+  text = text.replace(/\bfour\s+some\b/g, 'foursome')
+  text = text.replace(/\bthree\s+some\b/g, 'threesome')
+  text = text.replace(/\btwo\s+some\b/g, 'twosome')
+
+  // "group/party of N" and "N people/players/golfers" → canonical size word
+  text = text.replace(
+    /\b(?:group|party)\s+of\s+(one|two|three|four)\b/g,
+    (_, n) => normalizeSizeToWord(n),
+  )
+  text = text.replace(
+    /\b(one|two|three|four)\s+(?:people|players?|persons?|golfers?)\b/g,
+    (_, n) => normalizeSizeToWord(n),
+  )
+
+  // Past tense → present: "teed off" → "tee off", "checked in" → "check in"
+  text = text.replace(/\bteed\s+off\b/g, 'tee off')
+  text = text.replace(/\bchecked\s+in\b/g, 'check in')
+
+  // Collapse extra whitespace
+  text = text.replace(/\s+/g, ' ').trim()
+
+  return text
 }
 
 function capitalize(str: string): string {
@@ -122,15 +186,16 @@ function findGroup(fragment: string, groups: GroupData[]): GroupData | null {
 }
 
 /**
- * Parse a raw voice transcript into a structured action.
+ * Parse a *normalized* voice transcript into a structured action.
+ * Call normalizeTranscript() on the raw input before passing it here.
  * Returns null when the transcript doesn't match any known command.
  */
-function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
-  const text = raw.toLowerCase().trim()
+function parseCommand(normalizedText: string, groups: GroupData[]): ParsedAction | null {
+  const text = normalizedText // already lowercased & normalized
   const words = text.split(/\s+/)
 
   // ── ADD ──────────────────────────────────────────────────────────────────
-  // Patterns:
+  // Patterns (after normalization):
   //   "add [name] [size]"
   //   "add [name] [size] to queue"  → allPresent = true
   if (words[0] === 'add' && words.length >= 3) {
@@ -143,12 +208,11 @@ function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
       tokens = toQueueSuffix[1].split(/\s+/)
     }
 
-    // Last token should be a size word; everything before is the name
-    if (tokens.length >= 2) {
-      const lastToken = tokens[tokens.length - 1]
-      const size = parseSizeWord(lastToken)
+    // Walk from the end to find the first token that is a size word
+    for (let i = tokens.length - 1; i >= 1; i--) {
+      const size = parseSizeWord(tokens[i])
       if (size !== null) {
-        const name = capitalize(tokens.slice(0, -1).join(' '))
+        const name = capitalize(tokens.slice(0, i).join(' '))
         return {
           type: 'add',
           description: `Add ${name} (party of ${size}) to ${allPresent ? 'queue' : 'assembling'}`,
@@ -161,8 +225,8 @@ function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
   }
 
   // ── MARK AS HERE / CHECK-IN ───────────────────────────────────────────────
-  // "mark [name] as here"
-  const markMatch = text.match(/^mark\s+(.+?)\s+as\s+here/)
+  // "mark [name] as here" OR "mark [name] here"
+  const markMatch = text.match(/^mark\s+(.+?)\s+(?:as\s+)?here/)
   if (markMatch) {
     const group = findGroup(markMatch[1], groups)
     if (group) {
@@ -175,8 +239,8 @@ function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
     }
   }
 
-  // "[name] is here"
-  const isHereMatch = text.match(/^(.+?)\s+is\s+here/)
+  // "[name] is here" OR just "[name] here"
+  const isHereMatch = text.match(/^(.+?)\s+(?:is\s+)?here$/)
   if (isHereMatch) {
     const group = findGroup(isHereMatch[1], groups)
     if (group) {
@@ -204,7 +268,7 @@ function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
   }
 
   // ── TEE OFF ───────────────────────────────────────────────────────────────
-  // "tee off [name]"
+  // "tee off [name]"  (normalization already converts "teed off" → "tee off")
   const teeOffPrefixMatch = text.match(/^tee\s+off\s+(.+)/)
   if (teeOffPrefixMatch) {
     const group = findGroup(teeOffPrefixMatch[1], groups)
@@ -233,7 +297,7 @@ function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
   }
 
   // ── MOVE TO QUEUE ─────────────────────────────────────────────────────────
-  // "move [name] to queue"
+  // "move [name] to queue" or "move [name] to the queue"
   const moveMatch = text.match(/^move\s+(.+?)\s+to\s+(the\s+)?queue/)
   if (moveMatch) {
     const group = findGroup(moveMatch[1], groups)
@@ -243,6 +307,84 @@ function parseCommand(raw: string, groups: GroupData[]): ParsedAction | null {
         description: `Move ${group.name} to queue`,
         groupId: group.id,
         groupName: group.name,
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * When strict parsing fails, try to infer the most likely intent and return a
+ * suggested action the user can confirm with one tap.
+ */
+function suggestCommand(normalizedText: string, groups: GroupData[]): ParsedAction | null {
+  const words = normalizedText.split(/\s+/)
+
+  // ── ADD suggestion ───────────────────────────────────────────────────────
+  if (words[0] === 'add' && words.length >= 2) {
+    const noiseWords = new Set(['to', 'the', 'queue', 'a', 'an', 'please', 'um', 'uh'])
+    const meaningful = words.slice(1).filter(w => !noiseWords.has(w))
+
+    let size = 4 // sensible default
+    let nameTokens = meaningful
+
+    // Search from the end for a size word
+    for (let i = meaningful.length - 1; i >= 0; i--) {
+      const s = parseSizeWord(meaningful[i])
+      if (s !== null) {
+        size = s
+        nameTokens = meaningful.slice(0, i)
+        break
+      }
+    }
+
+    if (nameTokens.length > 0) {
+      const name = capitalize(nameTokens.join(' '))
+      const allPresent = normalizedText.includes('queue')
+      return {
+        type: 'add',
+        description: `Add ${name} (party of ${size}) to ${allPresent ? 'queue' : 'assembling'}`,
+        name,
+        partySize: size,
+        allPresent,
+      }
+    }
+  }
+
+  // ── Group-action suggestion (check-in / tee-off / move) ──────────────────
+  // Find any group whose name appears in the transcript
+  const mentionedGroup = groups.find(g => {
+    const lower = g.name.toLowerCase()
+    return (
+      normalizedText.includes(lower) ||
+      lower.split(/\s+/).some(part => part.length > 2 && normalizedText.includes(part))
+    )
+  })
+
+  if (mentionedGroup) {
+    if (/\b(?:here|arrived?|check)\b/.test(normalizedText)) {
+      return {
+        type: 'check-in',
+        description: `Mark ${mentionedGroup.name} as here (check in all members)`,
+        groupId: mentionedGroup.id,
+        groupName: mentionedGroup.name,
+      }
+    }
+    if (/\b(?:tee|off|play|start|go|course|going)\b/.test(normalizedText)) {
+      return {
+        type: 'tee-off',
+        description: `Tee off ${mentionedGroup.name}`,
+        groupId: mentionedGroup.id,
+        groupName: mentionedGroup.name,
+      }
+    }
+    if (/\b(?:move|queue|ready|next)\b/.test(normalizedText)) {
+      return {
+        type: 'move-to-queue',
+        description: `Move ${mentionedGroup.name} to queue`,
+        groupId: mentionedGroup.id,
+        groupName: mentionedGroup.name,
       }
     }
   }
@@ -288,6 +430,7 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
   const [transcript, setTranscript] = useState('')
   const [interimTranscript, setInterimTranscript] = useState('')
   const [parsedAction, setParsedAction] = useState<ParsedAction | null>(null)
+  const [suggestion, setSuggestion] = useState<ParsedAction | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
 
   // Keep a ref to the latest groups so the recognition callback always matches
@@ -358,12 +501,16 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
         return
       }
 
-      const action = parseCommand(finalTranscript, groupsRef.current)
+      const normalized = normalizeTranscript(finalTranscript)
+      const action = parseCommand(normalized, groupsRef.current)
       if (action) {
         setParsedAction(action)
+        setSuggestion(null)
         setVoiceState('confirming')
       } else {
-        setErrorMessage(`I didn't understand "${finalTranscript}". Please try again.`)
+        const suggested = suggestCommand(normalized, groupsRef.current)
+        setSuggestion(suggested)
+        setErrorMessage(`Command not recognized.`)
         setVoiceState('error')
       }
     }
@@ -431,16 +578,27 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
     setTranscript('')
     setInterimTranscript('')
     setParsedAction(null)
+    setSuggestion(null)
     setErrorMessage('')
   }, [stopListening])
 
   const handleTryAgain = useCallback(() => {
     setErrorMessage('')
     setTranscript('')
+    setSuggestion(null)
     setVoiceState('idle')
     // Small delay so the modal closes before reopening
     setTimeout(() => startListening(), 150)
   }, [startListening])
+
+  /** Accept the auto-suggested action and move to confirmation. */
+  const handleSuggest = useCallback(() => {
+    if (!suggestion) return
+    setParsedAction(suggestion)
+    setSuggestion(null)
+    setErrorMessage('')
+    setVoiceState('confirming')
+  }, [suggestion])
 
   // Cleanup on unmount
   useEffect(() => () => stopListening(), [stopListening])
@@ -518,9 +676,9 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
                   {/* Hint */}
                   <div className="bg-gray-700/60 rounded-lg px-4 py-3 w-full text-xs text-gray-400 space-y-1">
                     <p className="font-semibold text-gray-300 mb-1.5">Try saying:</p>
-                    <p>• &ldquo;Add Smith foursome&rdquo;</p>
-                    <p>• &ldquo;Mark Johnson as here&rdquo;</p>
-                    <p>• &ldquo;Tee off Williams&rdquo;</p>
+                    <p>• &ldquo;Add Smith foursome&rdquo; / &ldquo;Add Smith 4some&rdquo;</p>
+                    <p>• &ldquo;Johnson is here&rdquo; / &ldquo;Check in Johnson&rdquo;</p>
+                    <p>• &ldquo;Tee off Williams&rdquo; / &ldquo;Williams teed off&rdquo;</p>
                     <p>• &ldquo;Move Davis to queue&rdquo;</p>
                   </div>
                 </div>
@@ -582,16 +740,36 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
                     <h3 className="text-white font-bold text-lg">Not Recognised</h3>
                   </div>
 
-                  <p className="text-gray-300 text-sm mb-4">{errorMessage}</p>
+                  {/* Always show what was heard */}
+                  {transcript && (
+                    <>
+                      <p className="text-gray-400 text-xs uppercase tracking-widest mb-1">I heard:</p>
+                      <p className="text-white text-sm italic bg-gray-700 rounded-lg px-3 py-2 mb-4">
+                        &ldquo;{transcript}&rdquo;
+                      </p>
+                    </>
+                  )}
 
-                  <div className="bg-gray-700/60 rounded-lg p-3 text-xs text-gray-400 space-y-1">
-                    <p className="font-semibold text-gray-300 mb-1.5">Supported commands:</p>
-                    <p>• &ldquo;Add [name] foursome/threesome/twosome/single&rdquo;</p>
-                    <p>• &ldquo;Add [name] [1–4] to queue&rdquo;</p>
-                    <p>• &ldquo;Mark [name] as here&rdquo; / &ldquo;[name] is here&rdquo;</p>
-                    <p>• &ldquo;Tee off [name]&rdquo;</p>
-                    <p>• &ldquo;Move [name] to queue&rdquo;</p>
-                  </div>
+                  {/* Smart suggestion when available */}
+                  {suggestion ? (
+                    <div className="bg-yellow-900/30 border border-yellow-700/40 rounded-lg px-3 py-3 mb-2">
+                      <p className="text-yellow-300 text-sm font-medium mb-1">Did you mean:</p>
+                      <p className="text-white text-sm font-semibold">{suggestion.description}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-gray-300 text-sm mb-4">{errorMessage}</p>
+                      <div className="bg-gray-700/60 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+                        <p className="font-semibold text-gray-300 mb-1.5">Supported commands:</p>
+                        <p>• &ldquo;Add [name] foursome&rdquo; / &ldquo;Add [name] 4some&rdquo;</p>
+                        <p>• &ldquo;Add [name] [1–4] to queue&rdquo;</p>
+                        <p>• &ldquo;Mark [name] here&rdquo; / &ldquo;[name] is here&rdquo;</p>
+                        <p>• &ldquo;Check in [name]&rdquo;</p>
+                        <p>• &ldquo;Tee off [name]&rdquo; / &ldquo;[name] teed off&rdquo;</p>
+                        <p>• &ldquo;Move [name] to queue&rdquo;</p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex border-t border-gray-700">
@@ -608,6 +786,17 @@ export default function VoiceInput({ groups, onRefetch }: VoiceInputProps) {
                   >
                     Try Again
                   </button>
+                  {suggestion && (
+                    <>
+                      <div className="w-px bg-gray-700" />
+                      <button
+                        onClick={handleSuggest}
+                        className="flex-1 py-4 text-yellow-400 font-bold hover:bg-gray-700 active:bg-gray-600 transition-colors"
+                      >
+                        Yes, Do It
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}
