@@ -70,7 +70,7 @@ export async function GET() {
 
     // Fetch settings for club name
     const settingsSnap = await get(ref(db, 'settings/default'))
-    const settings = settingsSnap.val() || { clubName: 'Golf Club' }
+    const settings = settingsSnap.val() || { clubName: 'Orinda Country Club' }
 
     return NextResponse.json({
       calendar: calendarData,
