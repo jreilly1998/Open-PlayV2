@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { GroupData } from '@/lib/types'
-import { toggleMember, moveToQueue, removeGroup } from '@/lib/api'
+import { toggleMember, updateMemberField, moveToQueue, removeGroup } from '@/lib/api'
 import EditGroupModal from './EditGroupModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 
@@ -43,6 +43,28 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
       onRefetch()
     } finally {
       setLoading(prev => ({ ...prev, [memberId]: false }))
+    }
+  }
+
+  const handleToggleTransport = async (memberId: string, current: 'walking' | 'riding') => {
+    const next = current === 'riding' ? 'walking' : 'riding'
+    setLoading(prev => ({ ...prev, [`${memberId}-transport`]: true }))
+    try {
+      await updateMemberField(memberId, 'transport', next)
+      onRefetch()
+    } finally {
+      setLoading(prev => ({ ...prev, [`${memberId}-transport`]: false }))
+    }
+  }
+
+  const handleToggleHoles = async (memberId: string, current: 9 | 18) => {
+    const next = current === 18 ? 9 : 18
+    setLoading(prev => ({ ...prev, [`${memberId}-holes`]: true }))
+    try {
+      await updateMemberField(memberId, 'holes', next)
+      onRefetch()
+    } finally {
+      setLoading(prev => ({ ...prev, [`${memberId}-holes`]: false }))
     }
   }
 
@@ -162,36 +184,73 @@ export default function AssemblingSection({ groups, onRefetch }: AssemblingSecti
 
                     {/* Member list */}
                     <div className="space-y-1.5 mt-3">
-                      {group.members.map(member => (
-                        <button
-                          key={member.id}
-                          onClick={() => handleToggleMember(member.id)}
-                          disabled={loading[member.id]}
-                          className={`
-                            w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors min-h-[44px]
-                            ${member.arrived
-                              ? 'bg-green-50 text-green-800'
-                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                            }
-                            ${loading[member.id] ? 'opacity-50' : ''}
-                          `}
-                        >
-                          <span className={member.arrived ? 'check-animate' : ''}>
-                            {member.arrived ? (
-                              <svg className="w-5 h-5 text-queue-green" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="9" strokeWidth={1.5} />
-                              </svg>
-                            )}
-                          </span>
-                          <span className={`font-medium ${member.arrived ? 'text-green-800' : 'text-gray-700'}`}>
-                            {member.name}
-                          </span>
-                        </button>
-                      ))}
+                      {group.members.map(member => {
+                        const transport = member.transport ?? 'riding'
+                        const holes = (member.holes ?? 18) as 9 | 18
+                        const transportLoading = loading[`${member.id}-transport`]
+                        const holesLoading = loading[`${member.id}-holes`]
+
+                        return (
+                          <div key={member.id} className="flex items-center gap-2">
+                            {/* Arrived toggle — takes up most space */}
+                            <button
+                              onClick={() => handleToggleMember(member.id)}
+                              disabled={loading[member.id]}
+                              className={`
+                                flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors min-h-[44px]
+                                ${member.arrived
+                                  ? 'bg-green-50 text-green-800'
+                                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                }
+                                ${loading[member.id] ? 'opacity-50' : ''}
+                              `}
+                            >
+                              <span className={member.arrived ? 'check-animate' : ''}>
+                                {member.arrived ? (
+                                  <svg className="w-5 h-5 text-queue-green flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="9" strokeWidth={1.5} />
+                                  </svg>
+                                )}
+                              </span>
+                              <span className={`font-medium text-sm ${member.arrived ? 'text-green-800' : 'text-gray-700'}`}>
+                                {member.name}
+                              </span>
+                            </button>
+
+                            {/* Transport toggle */}
+                            <button
+                              onClick={() => handleToggleTransport(member.id, transport)}
+                              disabled={transportLoading}
+                              title={transport === 'walking' ? 'Walking — tap to switch to riding' : 'Riding — tap to switch to walking'}
+                              className={`min-w-[40px] min-h-[40px] rounded-lg text-base flex items-center justify-center transition-colors flex-shrink-0 border ${
+                                transport === 'walking'
+                                  ? 'bg-green-50 border-green-200 text-green-700'
+                                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'
+                              } ${transportLoading ? 'opacity-50' : ''}`}
+                            >
+                              {transport === 'walking' ? '🚶' : '🛒'}
+                            </button>
+
+                            {/* Holes toggle */}
+                            <button
+                              onClick={() => handleToggleHoles(member.id, holes)}
+                              disabled={holesLoading}
+                              title={`${holes} holes — tap to switch`}
+                              className={`min-w-[40px] min-h-[40px] rounded-lg font-bold text-xs flex items-center justify-center transition-colors flex-shrink-0 border ${
+                                holes === 9
+                                  ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'
+                              } ${holesLoading ? 'opacity-50' : ''}`}
+                            >
+                              {holes}
+                            </button>
+                          </div>
+                        )
+                      })}
                     </div>
 
                     {/* Move to Queue button */}

@@ -5,6 +5,8 @@ export interface MemberData {
   name: string
   arrived: boolean
   groupId: string
+  transport: 'walking' | 'riding'
+  holes: 9 | 18
 }
 
 export interface GroupData {
@@ -54,7 +56,7 @@ export interface CalendarGroup {
   id: string
   name: string
   partySize: number
-  members: Array<{ id: string; name: string }>
+  members: Array<{ id: string; name: string; transport?: 'walking' | 'riding'; holes?: 9 | 18 }>
   scheduledTime: string
 }
 

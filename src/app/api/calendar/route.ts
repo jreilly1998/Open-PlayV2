@@ -26,7 +26,7 @@ export async function GET() {
       scheduledTime: string | null
       isPreRegistered: boolean
       createdAt: string
-      members: Array<{ id: string; name: string; arrived: boolean; groupId: string }>
+      members: Array<{ id: string; name: string; arrived: boolean; groupId: string; transport?: string; holes?: number }>
     }>
 
     // Get pre-registered groups that haven't been checked in yet (assembling + no assemblingAt)
@@ -40,7 +40,7 @@ export async function GET() {
       id: string
       name: string
       partySize: number
-      members: Array<{ id: string; name: string }>
+      members: Array<{ id: string; name: string; transport?: string; holes?: number }>
       scheduledTime: string
     }>>> = {}
 
@@ -63,7 +63,7 @@ export async function GET() {
         id: group.id,
         name: group.name,
         partySize: group.partySize,
-        members: group.members.map(m => ({ id: m.id, name: m.name })),
+        members: group.members.map(m => ({ id: m.id, name: m.name, transport: m.transport, holes: m.holes })),
         scheduledTime: group.scheduledTime,
       })
     })

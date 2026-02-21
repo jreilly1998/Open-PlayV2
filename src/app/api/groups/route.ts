@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, ref, get, set, query, orderByChild, equalTo, generateId } from '@/lib/firebase'
 
+type MemberInput = { name: string; transport?: 'walking' | 'riding'; holes?: 9 | 18 }
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, partySize, memberNames, allPresent, scheduledTime, isPreRegistered } = body
+    const { name, partySize, members: membersArray, memberNames, allPresent, scheduledTime, isPreRegistered } = body
 
     if (!name || !partySize) {
       return NextResponse.json({ error: 'Name and party size required' }, { status: 400 })
@@ -12,27 +14,40 @@ export async function POST(request: NextRequest) {
 
     const db = getDb()
 
-    // Parse member names
-    const memberList: string[] = memberNames
-      ? memberNames.split(',').map((n: string) => n.trim()).filter(Boolean)
-      : []
+    // Parse member data — support structured array or legacy comma-separated string
+    let memberList: MemberInput[] = []
+    if (membersArray && Array.isArray(membersArray)) {
+      memberList = membersArray.map((m: MemberInput) => ({
+        name: m.name || '',
+        transport: m.transport || 'riding',
+        holes: m.holes || 18,
+      }))
+    } else if (memberNames) {
+      memberList = memberNames.split(',').map((n: string) => ({
+        name: n.trim(),
+        transport: 'riding' as const,
+        holes: 18 as const,
+      })).filter((m: MemberInput) => m.name)
+    }
 
     while (memberList.length < partySize) {
-      memberList.push(`Player ${memberList.length + 1}`)
+      memberList.push({ name: `Player ${memberList.length + 1}`, transport: 'riding', holes: 18 })
     }
 
     const groupId = generateId()
     const now = new Date().toISOString()
 
     // Build members object
-    const members: Record<string, { id: string; name: string; arrived: boolean; groupId: string }> = {}
-    memberList.forEach(memberName => {
+    const members: Record<string, { id: string; name: string; arrived: boolean; groupId: string; transport: string; holes: number }> = {}
+    memberList.slice(0, partySize).forEach(memberInput => {
       const memberId = generateId()
       members[memberId] = {
         id: memberId,
-        name: memberName,
+        name: memberInput.name,
         arrived: allPresent ? true : false,
         groupId,
+        transport: memberInput.transport || 'riding',
+        holes: memberInput.holes || 18,
       }
     })
 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, ref, get, set, update, query, orderByChild, equalTo, generateId } from '@/lib/firebase'
 
+type MemberInput = { id?: string; name: string; transport?: 'walking' | 'riding'; holes?: 9 | 18 }
+type StoredMember = { id: string; name: string; arrived: boolean; groupId: string; transport: string; holes: number }
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -15,7 +18,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, partySize, memberNames, scheduledTime } = body
+    const { name, partySize, members: membersArray, memberNames, scheduledTime } = body
     const now = new Date().toISOString()
 
     const updates: Record<string, unknown> = {
@@ -30,67 +33,91 @@ export async function PATCH(
       updates[`groups/${params.id}/scheduledTime`] = scheduledTime ? new Date(scheduledTime).toISOString() : null
     }
 
+    const existingMembers = group.members
+      ? Object.values(group.members) as StoredMember[]
+      : []
+
+    const targetSize = partySize !== undefined ? partySize : group.partySize
+
     if (partySize !== undefined && partySize !== group.partySize) {
       updates[`groups/${params.id}/partySize`] = partySize
+    }
 
-      // Rebuild members to match new party size
-      const existingMembers = group.members ? Object.values(group.members) as Array<{ id: string; name: string; arrived: boolean; groupId: string }> : []
-
-      // Parse new member names if provided
-      const newNames: string[] = memberNames
-        ? String(memberNames).split(',').map((n: string) => n.trim()).filter(Boolean)
-        : existingMembers.map((m: { name: string }) => m.name)
-
-      while (newNames.length < partySize) {
+    if (membersArray !== undefined && Array.isArray(membersArray)) {
+      // Structured member data — preserve IDs and arrived status where possible
+      const newMembers: Record<string, StoredMember> = {}
+      for (let i = 0; i < targetSize; i++) {
+        const input: MemberInput = membersArray[i] || {}
+        const existing = existingMembers[i]
+        if (existing) {
+          newMembers[existing.id] = {
+            id: existing.id,
+            name: input.name || existing.name,
+            arrived: existing.arrived,
+            groupId: params.id,
+            transport: input.transport ?? existing.transport ?? 'riding',
+            holes: input.holes ?? existing.holes ?? 18,
+          }
+        } else {
+          const memberId = generateId()
+          newMembers[memberId] = {
+            id: memberId,
+            name: input.name || `Player ${i + 1}`,
+            arrived: false,
+            groupId: params.id,
+            transport: input.transport || 'riding',
+            holes: input.holes || 18,
+          }
+        }
+      }
+      updates[`groups/${params.id}/members`] = newMembers
+    } else if (memberNames !== undefined) {
+      // Legacy comma-separated names — preserve transport/holes from existing members
+      const newNames: string[] = String(memberNames).split(',').map((n: string) => n.trim()).filter(Boolean)
+      while (newNames.length < targetSize) {
         newNames.push(`Player ${newNames.length + 1}`)
       }
 
-      // Build new members object — reuse existing where possible, create new for additions
-      const newMembers: Record<string, { id: string; name: string; arrived: boolean; groupId: string }> = {}
+      const newMembers: Record<string, StoredMember> = {}
+      for (let i = 0; i < targetSize; i++) {
+        if (i < existingMembers.length) {
+          const existing = existingMembers[i]
+          newMembers[existing.id] = {
+            ...existing,
+            name: newNames[i] || existing.name,
+          }
+        } else {
+          const memberId = generateId()
+          newMembers[memberId] = {
+            id: memberId,
+            name: newNames[i] || `Player ${i + 1}`,
+            arrived: false,
+            groupId: params.id,
+            transport: 'riding',
+            holes: 18,
+          }
+        }
+      }
+      updates[`groups/${params.id}/members`] = newMembers
+    } else if (partySize !== undefined && partySize !== group.partySize) {
+      // Party size changed but no member data — resize with defaults
+      const newMembers: Record<string, StoredMember> = {}
       for (let i = 0; i < partySize; i++) {
         if (i < existingMembers.length) {
           const existing = existingMembers[i]
-          newMembers[existing.id] = {
-            ...existing,
-            name: newNames[i] || existing.name,
-          }
+          newMembers[existing.id] = existing
         } else {
           const memberId = generateId()
           newMembers[memberId] = {
             id: memberId,
-            name: newNames[i] || `Player ${i + 1}`,
+            name: `Player ${i + 1}`,
             arrived: false,
             groupId: params.id,
+            transport: 'riding',
+            holes: 18,
           }
         }
       }
-
-      updates[`groups/${params.id}/members`] = newMembers
-    } else if (memberNames !== undefined) {
-      // Party size unchanged but member names updated
-      const existingMembers = group.members ? Object.values(group.members) as Array<{ id: string; name: string; arrived: boolean; groupId: string }> : []
-      const newNames: string[] = String(memberNames).split(',').map((n: string) => n.trim()).filter(Boolean)
-
-      const newMembers: Record<string, { id: string; name: string; arrived: boolean; groupId: string }> = {}
-      const size = group.partySize
-      for (let i = 0; i < size; i++) {
-        if (i < existingMembers.length) {
-          const existing = existingMembers[i]
-          newMembers[existing.id] = {
-            ...existing,
-            name: newNames[i] || existing.name,
-          }
-        } else {
-          const memberId = generateId()
-          newMembers[memberId] = {
-            id: memberId,
-            name: newNames[i] || `Player ${i + 1}`,
-            arrived: false,
-            groupId: params.id,
-          }
-        }
-      }
-
       updates[`groups/${params.id}/members`] = newMembers
     }
 
