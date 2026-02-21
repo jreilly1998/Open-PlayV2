@@ -1,10 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useCalendar, useCurrentTime } from '@/lib/hooks'
 import { createGroup, editGroup, removeGroup } from '@/lib/api'
 import { CalendarGroup } from '@/lib/types'
+
+interface MemberRow {
+  id?: string
+  name: string
+  transport: 'walking' | 'riding'
+  holes: 9 | 18
+}
+
+function defaultMember(): MemberRow {
+  return { name: '', transport: 'riding', holes: 18 }
+}
 
 function formatTimeSlot(time: string): string {
   const [h, m] = time.split(':').map(Number)
@@ -108,26 +119,46 @@ export default function StaffCalendar() {
   // Add form state
   const [formName, setFormName] = useState('')
   const [formPartySize, setFormPartySize] = useState(4)
-  const [formMemberNames, setFormMemberNames] = useState('')
+  const [formMembers, setFormMembers] = useState<MemberRow[]>([
+    defaultMember(), defaultMember(), defaultMember(), defaultMember(),
+  ])
   const [submitting, setSubmitting] = useState(false)
+
+  // Resize formMembers when formPartySize changes
+  useEffect(() => {
+    setFormMembers(prev => {
+      const next = [...prev]
+      while (next.length < formPartySize) next.push(defaultMember())
+      return next.slice(0, formPartySize)
+    })
+  }, [formPartySize])
 
   // Edit/delete state for calendar groups
   const [editingCalGroup, setEditingCalGroup] = useState<{ group: CalendarGroup; date: string; time: string } | null>(null)
   const [editName, setEditName] = useState('')
   const [editPartySize, setEditPartySize] = useState(4)
-  const [editMemberNames, setEditMemberNames] = useState('')
+  const [editMembers, setEditMembers] = useState<MemberRow[]>([])
   const [editDate, setEditDate] = useState('')
   const [editTime, setEditTime] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleteDeleting, setDeleteDeleting] = useState(false)
 
+  // Resize editMembers when editPartySize changes
+  useEffect(() => {
+    setEditMembers(prev => {
+      const next = [...prev]
+      while (next.length < editPartySize) next.push(defaultMember())
+      return next.slice(0, editPartySize)
+    })
+  }, [editPartySize])
+
   const handleSlotClick = (date: string, time: string) => {
     setSelectedSlot({ date, time })
     setShowAddForm(true)
     setFormName('')
     setFormPartySize(4)
-    setFormMemberNames('')
+    setFormMembers([defaultMember(), defaultMember(), defaultMember(), defaultMember()])
   }
 
   const handleAddPreRegistration = async (e: React.FormEvent) => {
@@ -139,7 +170,11 @@ export default function StaffCalendar() {
       await createGroup({
         name: formName.trim(),
         partySize: formPartySize,
-        memberNames: formMemberNames.trim() || undefined,
+        members: formMembers.slice(0, formPartySize).map(m => ({
+          name: m.name.trim() || '',
+          transport: m.transport,
+          holes: m.holes,
+        })),
         isPreRegistered: true,
         scheduledTime: `${selectedSlot.date}T${selectedSlot.time}:00.000Z`,
       })
@@ -157,7 +192,14 @@ export default function StaffCalendar() {
     setEditingCalGroup({ group: g, date, time })
     setEditName(g.name)
     setEditPartySize(g.partySize)
-    setEditMemberNames(g.members.map(m => m.name).join(', '))
+    const rows: MemberRow[] = g.members.map(m => ({
+      id: m.id,
+      name: m.name,
+      transport: (m.transport ?? 'riding') as 'walking' | 'riding',
+      holes: (m.holes ?? 18) as 9 | 18,
+    }))
+    while (rows.length < g.partySize) rows.push(defaultMember())
+    setEditMembers(rows)
     setEditDate(date)
     setEditTime(time)
   }
@@ -171,7 +213,12 @@ export default function StaffCalendar() {
       const data: Parameters<typeof editGroup>[1] = {
         name: editName.trim(),
         partySize: editPartySize,
-        memberNames: editMemberNames.trim() || undefined,
+        members: editMembers.slice(0, editPartySize).map(m => ({
+          id: m.id,
+          name: m.name.trim() || '',
+          transport: m.transport,
+          holes: m.holes,
+        })),
       }
       if (editDate && editTime) {
         data.scheduledTime = `${editDate}T${editTime}:00.000Z`
@@ -613,8 +660,22 @@ export default function StaffCalendar() {
                     </div>
                   </div>
                   {g.members.length > 0 && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      {g.members.map(m => m.name).join(', ')}
+                    <div className="mt-1.5 space-y-0.5">
+                      {g.members.map(m => {
+                        const transport = m.transport ?? 'riding'
+                        const holes = m.holes ?? 18
+                        return (
+                          <div key={m.id} className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span className="font-medium">{m.name}</span>
+                            <span className={transport === 'walking' ? 'text-green-600' : 'text-gray-400'}>
+                              {transport === 'walking' ? '🚶' : '🛒'}
+                            </span>
+                            <span className={`font-semibold ${holes === 9 ? 'text-amber-600' : 'text-gray-400'}`}>
+                              {holes}
+                            </span>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -703,8 +764,18 @@ export default function StaffCalendar() {
                           </span>
                         </div>
                         {group.members.length > 0 && (
-                          <div className="ml-0 sm:ml-20 text-sm text-gray-500 mt-0.5">
-                            {group.members.map(m => m.name).join(', ')}
+                          <div className="ml-0 sm:ml-20 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                            {group.members.map(m => {
+                              const transport = m.transport ?? 'riding'
+                              const holes = m.holes ?? 18
+                              return (
+                                <span key={m.id} className="text-sm text-gray-500 flex items-center gap-1">
+                                  {m.name}
+                                  <span>{transport === 'walking' ? '🚶' : '🛒'}</span>
+                                  <span className={`font-semibold ${holes === 9 ? 'text-amber-600' : ''}`}>{holes}</span>
+                                </span>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -795,17 +866,54 @@ export default function StaffCalendar() {
                 </div>
               </div>
 
+              {/* Member rows */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Member Names <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formMemberNames}
-                  onChange={e => setFormMemberNames(e.target.value)}
-                  placeholder="Separate with commas"
-                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-gray-700">
+                    Members <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <div className="flex items-center gap-3 text-xs text-gray-400 pr-1">
+                    <span>Walk/Ride</span>
+                    <span>Holes</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {formMembers.slice(0, formPartySize).map((member, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={member.name}
+                        onChange={e => setFormMembers(prev => prev.map((m, j) => j === i ? { ...m, name: e.target.value } : m))}
+                        placeholder={`Player ${i + 1}`}
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-queue-blue text-sm min-h-[44px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormMembers(prev => prev.map((m, j) => j === i ? { ...m, transport: m.transport === 'riding' ? 'walking' : 'riding' } : m))}
+                        title={member.transport === 'walking' ? 'Walking' : 'Riding'}
+                        className={`min-w-[44px] min-h-[44px] rounded-xl text-lg flex items-center justify-center transition-colors flex-shrink-0 border ${
+                          member.transport === 'walking'
+                            ? 'bg-green-50 border-green-300 text-green-700'
+                            : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {member.transport === 'walking' ? '🚶' : '🛒'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormMembers(prev => prev.map((m, j) => j === i ? { ...m, holes: m.holes === 18 ? 9 : 18 } : m))}
+                        title={`${member.holes} holes`}
+                        className={`min-w-[44px] min-h-[44px] rounded-xl font-bold text-sm flex items-center justify-center transition-colors flex-shrink-0 border ${
+                          member.holes === 9
+                            ? 'bg-amber-50 border-amber-300 text-amber-700'
+                            : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {member.holes}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -878,17 +986,52 @@ export default function StaffCalendar() {
                 </div>
               </div>
 
+              {/* Member rows */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Member Names <span className="text-gray-400 font-normal">(comma-separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={editMemberNames}
-                  onChange={e => setEditMemberNames(e.target.value)}
-                  placeholder="Separate with commas"
-                  className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Members</label>
+                  <div className="flex items-center gap-3 text-xs text-gray-400 pr-1">
+                    <span>Walk/Ride</span>
+                    <span>Holes</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {editMembers.slice(0, editPartySize).map((member, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={member.name}
+                        onChange={e => setEditMembers(prev => prev.map((m, j) => j === i ? { ...m, name: e.target.value } : m))}
+                        placeholder={`Player ${i + 1}`}
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-queue-blue text-sm min-h-[44px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditMembers(prev => prev.map((m, j) => j === i ? { ...m, transport: m.transport === 'riding' ? 'walking' : 'riding' } : m))}
+                        title={member.transport === 'walking' ? 'Walking' : 'Riding'}
+                        className={`min-w-[44px] min-h-[44px] rounded-xl text-lg flex items-center justify-center transition-colors flex-shrink-0 border ${
+                          member.transport === 'walking'
+                            ? 'bg-green-50 border-green-300 text-green-700'
+                            : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {member.transport === 'walking' ? '🚶' : '🛒'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditMembers(prev => prev.map((m, j) => j === i ? { ...m, holes: m.holes === 18 ? 9 : 18 } : m))}
+                        title={`${member.holes} holes`}
+                        className={`min-w-[44px] min-h-[44px] rounded-xl font-bold text-sm flex items-center justify-center transition-colors flex-shrink-0 border ${
+                          member.holes === 9
+                            ? 'bg-amber-50 border-amber-300 text-amber-700'
+                            : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {member.holes}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -1,8 +1,12 @@
 // Client-side API helpers
 
+type MemberInput = { name: string; transport?: 'walking' | 'riding'; holes?: 9 | 18 }
+type MemberInputWithId = MemberInput & { id?: string }
+
 export async function createGroup(data: {
   name: string
   partySize: number
+  members?: MemberInput[]
   memberNames?: string
   allPresent?: boolean
   scheduledTime?: string
@@ -44,9 +48,20 @@ export async function toggleMember(memberId: string) {
   return res.json()
 }
 
+export async function updateMemberField(memberId: string, field: 'transport' | 'holes', value: string | number) {
+  const res = await fetch(`/api/members/${memberId}/update-field`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ field, value }),
+  })
+  if (!res.ok) throw new Error('Failed to update member field')
+  return res.json()
+}
+
 export async function editGroup(groupId: string, data: {
   name?: string
   partySize?: number
+  members?: MemberInputWithId[]
   memberNames?: string
   scheduledTime?: string | null
 }) {

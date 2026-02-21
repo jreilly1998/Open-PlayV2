@@ -3,12 +3,19 @@
 import { useState, useEffect } from 'react'
 import { editGroup } from '@/lib/api'
 
+interface MemberRow {
+  id?: string
+  name: string
+  transport: 'walking' | 'riding'
+  holes: 9 | 18
+}
+
 interface EditGroupModalProps {
   group: {
     id: string
     name: string
     partySize: number
-    members: Array<{ id: string; name: string }>
+    members: Array<{ id: string; name: string; transport?: 'walking' | 'riding'; holes?: 9 | 18 }>
     scheduledTime?: string | null
   }
   showScheduledTime?: boolean
@@ -16,19 +23,27 @@ interface EditGroupModalProps {
   onSaved: () => void
 }
 
-function formatTimeSlot(time: string): string {
-  const [h, m] = time.split(':').map(Number)
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const hour = h % 12 || 12
-  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
+function defaultMember(index: number): MemberRow {
+  return { name: `Player ${index + 1}`, transport: 'riding', holes: 18 }
 }
 
 export default function EditGroupModal({ group, showScheduledTime, onClose, onSaved }: EditGroupModalProps) {
   const [name, setName] = useState(group.name)
   const [partySize, setPartySize] = useState(group.partySize)
-  const [memberNames, setMemberNames] = useState(
-    group.members.map(m => m.name).join(', ')
-  )
+  const [members, setMembers] = useState<MemberRow[]>(() => {
+    // Initialize from existing members, defaulting transport/holes
+    const rows: MemberRow[] = group.members.map(m => ({
+      id: m.id,
+      name: m.name,
+      transport: m.transport ?? 'riding',
+      holes: m.holes ?? 18,
+    }))
+    // Pad to partySize if needed
+    while (rows.length < group.partySize) {
+      rows.push(defaultMember(rows.length))
+    }
+    return rows
+  })
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
   const [saving, setSaving] = useState(false)
@@ -36,7 +51,6 @@ export default function EditGroupModal({ group, showScheduledTime, onClose, onSa
 
   useEffect(() => {
     if (showScheduledTime && group.scheduledTime) {
-      // scheduledTime is stored as UTC representing conceptual local time
       const d = new Date(group.scheduledTime)
       const year = d.getUTCFullYear()
       const month = (d.getUTCMonth() + 1).toString().padStart(2, '0')
@@ -48,6 +62,19 @@ export default function EditGroupModal({ group, showScheduledTime, onClose, onSa
     }
   }, [showScheduledTime, group.scheduledTime])
 
+  // Resize member rows when party size changes
+  useEffect(() => {
+    setMembers(prev => {
+      const next = [...prev]
+      while (next.length < partySize) next.push(defaultMember(next.length))
+      return next.slice(0, partySize)
+    })
+  }, [partySize])
+
+  const updateMember = (i: number, patch: Partial<MemberRow>) => {
+    setMembers(prev => prev.map((m, j) => j === i ? { ...m, ...patch } : m))
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
@@ -58,7 +85,12 @@ export default function EditGroupModal({ group, showScheduledTime, onClose, onSa
       const data: Parameters<typeof editGroup>[1] = {
         name: name.trim(),
         partySize,
-        memberNames: memberNames.trim() || undefined,
+        members: members.slice(0, partySize).map(m => ({
+          id: m.id,
+          name: m.name.trim() || '',
+          transport: m.transport,
+          holes: m.holes,
+        })),
       }
 
       if (showScheduledTime && scheduledDate && scheduledTime) {
@@ -128,17 +160,54 @@ export default function EditGroupModal({ group, showScheduledTime, onClose, onSa
             </div>
           </div>
 
+          {/* Member rows with transport / holes */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Member Names <span className="text-gray-400 font-normal">(comma-separated)</span>
-            </label>
-            <input
-              type="text"
-              value={memberNames}
-              onChange={e => setMemberNames(e.target.value)}
-              placeholder="Separate with commas"
-              className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-queue-blue focus:border-transparent text-base min-h-[48px]"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-semibold text-gray-700">Members</label>
+              <div className="flex items-center gap-3 text-xs text-gray-400 pr-1">
+                <span>Walk/Ride</span>
+                <span>Holes</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {members.slice(0, partySize).map((member, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={member.name}
+                    onChange={e => updateMember(i, { name: e.target.value })}
+                    placeholder={`Player ${i + 1}`}
+                    className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-queue-blue text-sm min-h-[44px]"
+                  />
+                  {/* Transport toggle */}
+                  <button
+                    type="button"
+                    onClick={() => updateMember(i, { transport: member.transport === 'riding' ? 'walking' : 'riding' })}
+                    title={member.transport === 'walking' ? 'Walking — tap to switch to riding' : 'Riding — tap to switch to walking'}
+                    className={`min-w-[44px] min-h-[44px] rounded-xl text-lg flex items-center justify-center transition-colors flex-shrink-0 border ${
+                      member.transport === 'walking'
+                        ? 'bg-green-50 border-green-300 text-green-700'
+                        : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {member.transport === 'walking' ? '🚶' : '🛒'}
+                  </button>
+                  {/* Holes toggle */}
+                  <button
+                    type="button"
+                    onClick={() => updateMember(i, { holes: member.holes === 18 ? 9 : 18 })}
+                    title={`${member.holes} holes — tap to switch`}
+                    className={`min-w-[44px] min-h-[44px] rounded-xl font-bold text-sm flex items-center justify-center transition-colors flex-shrink-0 border ${
+                      member.holes === 9
+                        ? 'bg-amber-50 border-amber-300 text-amber-700'
+                        : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {member.holes}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           {showScheduledTime && (
