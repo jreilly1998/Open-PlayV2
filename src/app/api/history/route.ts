@@ -31,7 +31,8 @@ export async function GET() {
         if (!aTime && !bTime) return 0
         if (!aTime) return 1
         if (!bTime) return -1
-        return new Date(bTime).getTime() - new Date(aTime).getTime()
+        // Ascending: earliest tee-off first (client may re-sort)
+        return new Date(aTime).getTime() - new Date(bTime).getTime()
       })
 
     return NextResponse.json(groups)
